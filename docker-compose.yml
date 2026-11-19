@@ -58,8 +58,9 @@ services:
       - ./certs/lab.key:/certs/lab.key:ro
     command: ["-c", "/etc/envoy/envoy.yaml"]
 
-  # go-nethttp and nghttpd are built locally (see scripts/lab-up-targets.sh);
-  # compose entries below assume the tagged images already exist.
+  # go-nethttp, nghttpd, and node-http2 are built locally (see
+  # scripts/lab-up-targets.sh); compose entries below assume the tagged
+  # images already exist.
   go-nethttp:
     image: integer-lab-go:pinned
     platform: linux/amd64
@@ -85,3 +86,16 @@ services:
     # Alpine image has no openssl CLI; install it, then the same self-signed
     # cert command as nginx-1318. The server bits stay the pinned digest.
     entrypoint: ["sh","-c","apk add --no-cache openssl >/dev/null && openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/lab-h2.key -out /tmp/lab-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec openresty -g 'daemon off;'"]
+
+  # node-http2 is built locally from
+  # node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+  # (tag :22-alpine → v22.23.5). Image tag after build: integer-lab-node:pinned.
+  # Port 19453 is reserved for HAProxy and is intentionally unused.
+  node-http2:
+    image: integer-lab-node:pinned
+    platform: linux/amd64
+    container_name: integer-lab-node
+    ports: ["127.0.0.1:19454:443"]
+    volumes:
+      - ./certs/lab.crt:/certs/lab.crt:ro
+      - ./certs/lab.key:/certs/lab.key:ro

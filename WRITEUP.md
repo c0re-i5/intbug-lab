@@ -1,6 +1,6 @@
 # HTTP/2 Flow-Control Integer-Bug Lab
 
-**A reproducible lab that detects the HTTP/2 flow-control integer-bug class (CWE-191) and validates it against nginx CVE-2026-123007 across nine real servers.**
+**A reproducible lab that detects the HTTP/2 flow-control integer-bug class (CWE-191) and validates it against nginx CVE-2026-123007 across ten loopback servers.**
 
 *Research write-up — 2026-11-19 (America/Toronto)*
 
@@ -8,17 +8,17 @@
 
 ## Summary
 
-This project is a standalone, one-command lab for the **class** of HTTP/2 flow-control / counter / length integer bugs. It runs a seven-probe invariant battery against nine loopback HTTP/2 implementations and **reliably distinguishes** the known nginx CVE-2026-123007 accounting bug from patched nginx and from every other stack under test.
+This project is a standalone, one-command lab for the **class** of HTTP/2 flow-control / counter / length integer bugs. It runs a seven-probe invariant battery against ten loopback targets and **reliably distinguishes** the known nginx CVE-2026-123007 accounting bug from patched nginx and from every other stack under test.
 
-On nginx 1.31.8 (known-vulnerable), the `cleanup_overcredit` probe fails. On nginx 1.31.9 (patched) and on Apache, Caddy, Envoy, Go `net/http`, nghttpd, and OpenResty 1.31.8.1, the same probe passes. The nginx pair matches arkrwn's public `--safe` PoC on the same listeners. OpenResty 1.31.8.1 is still the nginx 1.31.8 line and was run at full KeyUpdate pressure; the accounting signal was not observed. That PASS is not a new CVE and not a claim that this OpenResty build contains the nginx fix. The method is target-agnostic; adding a server is a few lines in `ours/targets.py`.
+On nginx 1.31.8 (known-vulnerable), the `cleanup_overcredit` probe fails. On nginx 1.31.9 (patched) and on Apache, Caddy, Envoy, Go `net/http`, nghttpd, OpenResty 1.31.8.1, and Node.js stdlib `http2`, the same probe passes. The nginx pair matches arkrwn's public `--safe` PoC on the same listeners. OpenResty 1.31.8.1 is still the nginx 1.31.8 line and was run at full KeyUpdate pressure; the accounting signal was not observed. Node was run on the soft profile (`key_updates=0`, `carrier=200000`), same as Go and Caddy. Neither PASS is a new CVE, and the OpenResty PASS is not a claim that this build contains the nginx fix. The method is target-agnostic; adding a server is a few lines in `ours/targets.py`.
 
 No new vulnerability is reported from this work. The deliverable is a **working, validated method** — not a one-CVE detector that expires when nginx is patched.
 
 | | |
 |---|---|
-| Targets | 9 loopback HTTP/2 servers |
+| Targets | 10 loopback servers |
 | Probes | 7 RFC 9113 invariants |
-| Offline tests | 25 |
+| Offline tests | 26 |
 | CVE-class discriminator | `cleanup_overcredit` |
 
 ---
@@ -66,10 +66,13 @@ Three components:
 | `go-nethttp` | Go `net/http` | `127.0.0.1:19449` | built from `golang@sha256:1a6d4452…` |
 | `nghttpd` | nghttp2 reference | `127.0.0.1:19450` | pinned `debian` base; apt `nghttp2-server` floats |
 | `openresty-1.31.8.1` | nginx-family (OpenResty, nginx 1.31.8 line) | `127.0.0.1:19452` | `openresty/openresty@sha256:2cb90d6419…` |
+| `node-http2` | Node.js stdlib `http2` | `127.0.0.1:19454` | built from `node@sha256:1314fb30ec…` (`:22-alpine` → v22.23.5) |
 
 Bodies: 896-byte `/index.html` (Range-capable where supported).
 
 OpenResty 1.31.8.1 (`:alpine`) is still the nginx 1.31.8 line, so it is not an independent implementation. The lab runs it under the same full KeyUpdate pressure as nginx 1.31.8. A `cleanup_overcredit` FAIL on that listener is nginx-family inheritance of CVE-2026-123007, not a new CVE. Point follow-up at the nginx vendor advisory and re-pin when OpenResty ships 1.31.9+ or a backport. The alpine image has no `openssl` CLI; the entrypoint installs that package only to mint the lab certificate.
+
+Node.js `http2` is stdlib-only on a pinned `node:22-alpine` base (v22.23.5). Certs are the lab pair mounted at `/certs`, same as Caddy and Envoy. The server handles a single `Range` so the cleanup fill/canary path can run. It is published only on `127.0.0.1:19454`. Port 19453 is reserved for HAProxy and is not bound. The base digest is pinned; `server.js` is not separately hashed. The registered cleanup profile is the soft one.
 
 ---
 
@@ -88,23 +91,24 @@ On the vulnerable build the oracle records RST `FLOW_CONTROL_ERROR` on the queue
 
 ## Results
 
-From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The OpenResty column is this slice; the other columns are the prior graceful matrix and were not re-run.
+From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The Node column is this slice; the other columns are the prior OpenResty matrix and were not re-run.
 
-| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openresty-1.31.8.1 |
-|-------|--------------|-----------|--------------|--------------|-------|-------|-----|---------|--------------------|
-| `h2_alpn` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| `wu_zero_conn` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS |
-| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | PASS |
-| `wu_conn_overflow` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS |
-| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL |
-| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL |
-| `cleanup_overcredit` | **FAIL** | — | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openresty-1.31.8.1 | node-http2 |
+|-------|--------------|-----------|--------------|--------------|-------|-------|-----|---------|--------------------|------------|
+| `h2_alpn` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| `wu_zero_conn` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS |
+| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | PASS | ANOMALY |
+| `wu_conn_overflow` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS |
+| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL | ANOMALY |
+| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL | ANOMALY |
+| `cleanup_overcredit` | **FAIL** | — | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 
 **Reading the matrix**
 
-- `cleanup_overcredit` is the CVE-class discriminator: FAIL on nginx 1.31.8; PASS on patched nginx and every other h2 target, including OpenResty 1.31.8.1 under the same full KeyUpdate pressure (`key_updates=262144`, `carrier=7340032`). The OpenResty PASS was repeated. The vulnerable signature was not observed. That is not a new CVE and not a claim that OpenResty 1.31.8.1 contains the nginx fix. A future FAIL on this nginx 1.31.8 line would be inheritance of CVE-2026-123007.
+- `cleanup_overcredit` is the CVE-class discriminator: FAIL on nginx 1.31.8; PASS on patched nginx and every other h2 target, including OpenResty 1.31.8.1 under the same full KeyUpdate pressure (`key_updates=262144`, `carrier=7340032`) and Node.js `http2` under the soft profile (`key_updates=0`, `carrier=200000`). The OpenResty PASS was repeated. The Node PASS is one run. The vulnerable signature was not observed on either. That is not a new CVE and not a claim that OpenResty 1.31.8.1 contains the nginx fix. A future FAIL on this nginx 1.31.8 line would be inheritance of CVE-2026-123007.
 - OpenResty `wu_stream_overflow` and `settings_iw_overflow` FAIL the same way they FAIL on both nginx 1.31.8 and nginx 1.31.9. Those rows are not the CVE discriminator.
-- nginx / Apache cleanup runs under full KeyUpdate pressure. Caddy / Envoy / Go / nghttpd complete under a soft profile (`key_updates=0`, `carrier=200000`); full KeyUpdate pressure hits Broken pipe on those stacks. Soft-profile PASS means the accounting signal was not observed under that load — see Scope.
+- Node `wu_zero_stream`, `wu_stream_overflow`, and `settings_iw_overflow` are ANOMALY: the connection closed with no GOAWAY. Review items, not CVE claims. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS.
+- nginx / Apache cleanup runs under full KeyUpdate pressure. Caddy / Envoy / Go / nghttpd / Node complete under a soft profile (`key_updates=0`, `carrier=200000`); full KeyUpdate pressure hits Broken pipe on the earlier non-nginx stacks. Node was not driven at that pressure. Soft-profile PASS means the accounting signal was not observed under that load — see Scope.
 - Other FAIL/ANOMALY rows are RFC-conformance / review items (`evidence/MANUAL-REVIEW-NOTES.txt`). nginx `wu_stream_overflow` / `settings_iw_overflow` FAIL on both vuln and patched builds, so they are not the CVE discriminator; likely probe over-strictness pending an h2spec overflow cross-check.
 
 ---
@@ -135,7 +139,7 @@ Deliberate design:
 
 Current engineering limits:
 
-- Soft-profile cleanup on caddy / envoy / go / nghttpd is not equivalent to nginx KeyUpdate pressure.
+- Soft-profile cleanup on caddy / envoy / go / nghttpd / node is not equivalent to nginx KeyUpdate pressure.
 - Envoy `direct_response` ignores HTTP Range; window-exhaustion via Range is degraded there.
 - nginx overflow FAILs on both builds need an h2spec overflow cross-check.
 - `nghttpd` apt package version floats on a pinned debian base (reference baseline).
@@ -150,14 +154,14 @@ Current engineering limits:
 ./scripts/run-all.sh --skip-heavy    # skip ~45s cleanup_overcredit
 ```
 
-Pipeline: dockerd → pinned targets up → 24 offline unit tests → 7-probe battery → matrix. Exit 0 means the harness succeeded (FAIL/ANOMALY in the matrix are observations). Tear down: `./scripts/lab-down-targets.sh`.
+Pipeline: dockerd → pinned targets up → 26 offline unit tests → 7-probe battery → matrix. Exit 0 means the harness succeeded (FAIL/ANOMALY in the matrix are observations). Tear down: `./scripts/lab-down-targets.sh`.
 
 ```bash
 ./scripts/capture-zero-wu.py
 ./scripts/run-h2spec-zero-wu.sh
 ```
 
-Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with stdlib only.
+Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with stdlib only. `node-http2` rebuilds from pinned `node:22-alpine` (v22.23.5) with stdlib `http2` only. The Node app is not separately hashed.
 
 ---
 
@@ -168,13 +172,14 @@ Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with
 - nginx 1.31.8 breaks the connection-window accounting invariant.
 - nginx 1.31.9 and Apache hold it under full KeyUpdate pressure.
 - Caddy / Envoy / Go / nghttpd: signal not observed under the soft profile; probes completed.
-- Method runs across nine real HTTP/2 stacks.
+- Method runs across ten loopback targets.
 - OpenResty 1.31.8.1 completed full-pressure `cleanup_overcredit` without the accounting signal (two runs). Not a new CVE and not a vendor-fix claim.
+- Node.js stdlib `http2` (v22.23.5) completed soft-profile `cleanup_overcredit` without the accounting signal (one run). Not a new CVE.
 - Zero-WU false positive identified, corrected, and h2spec-verified.
 
 **Out of scope for this write-up**
 
-- New CVEs on non-nginx targets, including OpenResty.
+- New CVEs on non-nginx targets, including OpenResty and Node.
 - Reading the OpenResty 1.31.8.1 PASS as proof the nginx fix is present in that build.
 - Equating soft-profile PASS with nginx-pressure immunity.
 - Memory corruption or RCE proofs.
@@ -186,7 +191,7 @@ Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with
 1. Range-capable (or canary-fill) path for Envoy cleanup.
 2. Full KeyUpdate pressure on non-nginx stacks without Broken pipe, or keep soft-profile semantics explicit.
 3. h2spec cross-check of nginx `wu_stream_overflow` / `settings_iw_overflow`.
-4. Additional targets (Traefik, Hyper, …) via the same registry.
+4. Additional targets via the same registry. Next expand slices: HAProxy (`127.0.0.1:19453`, reserved) and OpenLiteSpeed. Node stdlib `http2` is wired on `127.0.0.1:19454`. Traefik stays rejected for now.
 5. After the HTTP/2 battery is settled: map the same invariant ideas onto other protocols as a separate standalone slice.
 
 ---

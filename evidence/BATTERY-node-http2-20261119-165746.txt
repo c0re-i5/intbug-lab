@@ -1,0 +1,57 @@
+# node-http2 — Node.js http2 (stdlib)
+url: https://127.0.0.1:19454/
+
+## h2_alpn — PASS
+title: ALPN negotiates h2
+rfc:   RFC 9113 §3.3 / RFC 7301
+detail: ALPN h2 negotiated
+
+## wu_zero_conn — PASS
+title: WINDOW_UPDATE increment 0 (connection) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+  evidence: new_frames=1
+
+## wu_zero_stream — ANOMALY
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: connection closed without GOAWAY PROTOCOL_ERROR — needs manual review
+  evidence: alive=False
+  evidence: goaway_error=None
+  evidence: rst=[]
+  evidence: opened_without_end_stream=1
+  evidence: wu_frame_hex=00000408000000000100000000
+
+## wu_conn_overflow — PASS
+title: connection WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY FLOW_CONTROL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=3
+
+## wu_stream_overflow — ANOMALY
+title: stream WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: unclear (goaway=None, alive=False)
+  evidence: alive=False
+  evidence: goaway_error=None
+
+## settings_iw_overflow — ANOMALY
+title: SETTINGS_INITIAL_WINDOW_SIZE overflow handling
+rfc:   RFC 9113 §6.9.2
+detail: mixed/unclear reaction (goaway=None, rst={}, alive=False)
+  evidence: alive=False
+  evidence: goaway_error=None
+  evidence: rst={}
+
+## cleanup_overcredit — PASS
+title: queued-DATA cleanup must not push connection window above MAX
+rfc:   RFC 9113 §6.9 / CWE-191 class (nginx CVE-2026-123007 accounting)
+detail: accounting over-credit signal NOT proven (completed under primary key_updates=0, carrier=200000)
+  evidence: profile=primary key_updates=0 carrier=200000
+  evidence: queued_data_refund_resets=FAIL: expected RST FLOW_CONTROL_ERROR on [149, 151]; got {149: None, 151: None}
+  evidence: public_byte_release=FAIL: canary 0 bytes vs expected 10
+  evidence: underflowed_wu_guard=FAIL: no matching PING ACK after suspected over-credit WINDOW_UPDATE
+  evidence: connection_still_usable=FAIL: connection did not remain cleanly usable

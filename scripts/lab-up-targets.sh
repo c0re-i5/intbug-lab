@@ -20,6 +20,8 @@ GOLANG='golang@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173
 DEBIAN='debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc'
 # openresty/1.31.8.1 alpine — still the nginx 1.31.8 line.
 OPENRESTY='openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a'
+# node:22-alpine → v22.23.5. Lab app (conf/node) is not separately hashed.
+NODE='node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a'
 
 ensure_certs() {
   if [[ ! -f certs/lab.crt || ! -f certs/lab.key ]]; then
@@ -125,6 +127,18 @@ docker run -d --name integer-lab-openresty --platform linux/amd64 \
     exec openresty -g "daemon off;"'
 echo "started integer-lab-openresty on 127.0.0.1:19452"
 
+# --- Node.js http2 (built locally from pinned node:22-alpine, like go-nethttp) ---
+docker pull --platform linux/amd64 "$NODE" >/dev/null
+docker build --platform linux/amd64 --build-arg NODE_IMAGE="$NODE" \
+  -t integer-lab-node:pinned "${ROOT}/conf/node" >/dev/null
+docker rm -f integer-lab-node >/dev/null 2>&1 || true
+docker run -d --name integer-lab-node --platform linux/amd64 \
+  -p 127.0.0.1:19454:443 \
+  --mount type=bind,src="${ROOT}/certs/lab.crt",dst=/certs/lab.crt,readonly \
+  --mount type=bind,src="${ROOT}/certs/lab.key",dst=/certs/lab.key,readonly \
+  integer-lab-node:pinned
+echo "started integer-lab-node on 127.0.0.1:19454"
+
 sleep 3
 echo
 echo "=== smoke ==="
@@ -137,7 +151,8 @@ for url in \
   https://127.0.0.1:19448/index.html \
   https://127.0.0.1:19449/index.html \
   https://127.0.0.1:19450/index.html \
-  https://127.0.0.1:19452/index.html
+  https://127.0.0.1:19452/index.html \
+  https://127.0.0.1:19454/index.html
 do
   code=$(curl -skS --http2 -o /dev/null -w '%{http_code}/%{http_version}/%{size_download}' "$url" 2>/dev/null || echo fail)
   echo "smoke $url -> $code"

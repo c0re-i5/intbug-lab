@@ -44,7 +44,9 @@ class Target:
 
 # Ports: 19443 vuln nginx, 19444 http2-off, 19445 apache, 19446 patched nginx,
 #         19447 caddy, 19448 envoy, 19449 go-nethttp, 19450 nghttpd,
-#         19452 openresty (nginx 1.31.8 line).
+#         19452 openresty (nginx 1.31.8 line),
+#         19453 reserved for HAProxy (not wired),
+#         19454 node-http2.
 TARGETS: dict[str, Target] = {
     "nginx-1.31.8": Target(
         id="nginx-1.31.8",
@@ -158,6 +160,23 @@ TARGETS: dict[str, Target] = {
         ),
         # Same pressure as nginx-1.31.8. No soft fallback: ku=0 would hide
         # the known nginx-line accounting signal.
+        fallback_key_updates=None,
+        fallback_carrier_app_bytes=None,
+    ),
+    "node-http2": Target(
+        id="node-http2",
+        name="Node.js http2 (stdlib)",
+        url="https://127.0.0.1:19454/",
+        role="cross-impl",
+        image="node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a",
+        supports_h2=True,
+        notes=(
+            "Built from pinned node:22-alpine (v22.23.5); stdlib http2; "
+            "soft profile like go/caddy (key_updates=0). Lab app is not "
+            "separately hashed"
+        ),
+        key_updates=0,
+        carrier_app_bytes=200_000,
         fallback_key_updates=None,
         fallback_carrier_app_bytes=None,
     ),

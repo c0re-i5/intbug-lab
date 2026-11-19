@@ -9,6 +9,9 @@ _REPO = Path(__file__).resolve().parents[2]
 _OPENRESTY_DIGEST = (
     "sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a"
 )
+_NODE_DIGEST = (
+    "sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a"
+)
 
 
 class StatusTests(unittest.TestCase):
@@ -47,8 +50,31 @@ class CleanupTuningTests(unittest.TestCase):
         self.assertIn("127.0.0.1:19452:443", compose)
         self.assertNotIn("0.0.0.0:19452", compose)
 
+    def test_node_http2_soft_profile_digest_lockstep(self):
+        t = get_target("node-http2")
+        self.assertEqual(t.role, "cross-impl")
+        self.assertTrue(t.supports_h2)
+        self.assertEqual(t.url, "https://127.0.0.1:19454/")
+        self.assertEqual(t.key_updates, 0)
+        self.assertEqual(t.carrier_app_bytes, 200_000)
+        self.assertIsNone(t.fallback_key_updates)
+        self.assertIsNone(t.fallback_carrier_app_bytes)
+        self.assertIn(_NODE_DIGEST, t.image)
+        for rel in (
+            "ours/targets.py",
+            "docker-compose.yml",
+            "scripts/lab-up-targets.sh",
+        ):
+            blob = (_REPO / rel).read_text()
+            self.assertEqual(blob.count(_NODE_DIGEST), 1, rel)
+        compose = (_REPO / "docker-compose.yml").read_text()
+        self.assertIn("integer-lab-node:pinned", compose)
+        self.assertIn("127.0.0.1:19454:443", compose)
+        self.assertNotIn("0.0.0.0:19454", compose)
+        self.assertNotIn("0.0.0.0:19453", compose)
+
     def test_soft_stacks_use_ku0(self):
-        for tid in ("caddy-2.10", "envoy-1.32", "go-nethttp", "nghttpd"):
+        for tid in ("caddy-2.10", "envoy-1.32", "go-nethttp", "nghttpd", "node-http2"):
             t = get_target(tid)
             self.assertEqual(t.key_updates, 0, tid)
             self.assertEqual(t.carrier_app_bytes, 200_000, tid)

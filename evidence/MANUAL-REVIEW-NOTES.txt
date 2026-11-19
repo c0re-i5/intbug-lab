@@ -115,3 +115,26 @@ OpenResty slice (2026-11-19 America/Toronto) — not a new CVE
     openresty-1.31.8.1 :: settings_iw_overflow = FAIL
     Same rows already FAIL on both nginx 1.31.8 and nginx 1.31.9, so they
     are not the CVE-2026-123007 discriminator. Not a new finding.
+
+----------------------------------------------------------------------
+Node http2 slice (2026-11-19 America/Toronto) — not a new CVE
+----------------------------------------------------------------------
+
+12) node-http2 :: cleanup_overcredit = PASS
+    Soft profile (key_updates=0, carrier=200000), one run
+    (evidence/BATTERY-node-http2-20261119-165746.txt). Same profile as
+    go/caddy. Vulnerable signature not observed: no RST FLOW_CONTROL_ERROR
+    on streams 149/151, canary 0/10, no post-refund PING ACK. Connection
+    did not stay cleanly usable (alive=False). Completed NOT_PROVEN under
+    the soft profile. Not nginx-pressure immunity. Not a new CVE.
+    Base image node -v is v22.23.5
+    (node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a).
+
+13) node-http2 :: wu_zero_stream = ANOMALY
+    node-http2 :: wu_stream_overflow = ANOMALY
+    node-http2 :: settings_iw_overflow = ANOMALY
+    Connection closed with no GOAWAY (overflow probes also had rst={}).
+    wu_zero_stream used the same open-stream WU(0) frame as the other
+    targets (00000408000000000100000000). Hard-close style, same review
+    bucket as Envoy. wu_zero_conn and wu_conn_overflow did GOAWAY and PASS.
+    Not a CVE.

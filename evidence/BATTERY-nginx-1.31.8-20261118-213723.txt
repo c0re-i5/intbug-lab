@@ -1,0 +1,53 @@
+# nginx-1.31.8 — nginx 1.31.8 (CVE-2026-123007 known-vulnerable)
+url: https://127.0.0.1:19443/
+
+## h2_alpn — PASS
+title: ALPN negotiates h2
+rfc:   RFC 9113 §3.3 / RFC 7301
+detail: ALPN h2 negotiated
+
+## wu_zero_conn — PASS
+title: WINDOW_UPDATE increment 0 (connection) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+  evidence: new_frames=1
+
+## wu_zero_stream — PASS
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+
+## wu_conn_overflow — PASS
+title: connection WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY FLOW_CONTROL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=3
+
+## wu_stream_overflow — FAIL
+title: stream WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: accepted stream WU that overflows MAX
+  evidence: alive=True
+  evidence: goaway_error=None
+
+## settings_iw_overflow — FAIL
+title: SETTINGS_INITIAL_WINDOW_SIZE overflow handling
+rfc:   RFC 9113 §6.9.2
+detail: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+  evidence: alive=True
+  evidence: goaway_error=None
+  evidence: rst={}
+
+## cleanup_overcredit — FAIL
+title: queued-DATA cleanup must not push connection window above MAX
+rfc:   RFC 9113 §6.9 / CWE-191 class (nginx CVE-2026-123007 accounting)
+detail: INVARIANT BROKEN: cleanup over-credit + underflowed WU guard (accounting bug class)
+  evidence: queued_data_refund_resets=PASS: expected RST FLOW_CONTROL_ERROR on [149, 151]; got {149: 3, 151: 3}
+  evidence: public_byte_release=PASS: canary 10 bytes vs expected 10
+  evidence: underflowed_wu_guard=PASS: post-refund PING ACK
+  evidence: connection_still_usable=PASS: canary DATA + PING ACK on same connection

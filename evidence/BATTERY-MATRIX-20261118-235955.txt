@@ -1,0 +1,5 @@
+probe          | nginx-1.31.8    | nginx-http2-off | httpd-2.4.71    | nginx-1.31.9    | caddy-2.10      | envoy-1.32      | go-nethttp      | nghttpd        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+wu_zero_stream | PASS            | SKIP            | PASS            | PASS            | ANOMALY         | ANOMALY         | ANOMALY         | PASS           
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure

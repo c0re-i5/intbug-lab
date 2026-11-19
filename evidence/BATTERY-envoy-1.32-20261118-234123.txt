@@ -1,0 +1,37 @@
+# envoy-1.32 — Envoy 1.32 (cross-impl)
+url: https://127.0.0.1:19448/
+
+## h2_alpn — ERROR
+title: ALPN negotiates h2
+rfc:   RFC 9113 §3.3 / RFC 7301
+detail: [Errno 111] Connection refused
+
+## wu_zero_conn — ERROR
+title: WINDOW_UPDATE increment 0 (connection) rejected
+rfc:   RFC 9113 §6.9.1
+detail: [Errno 111] Connection refused
+
+## wu_zero_stream — ERROR
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: [Errno 111] Connection refused
+
+## wu_conn_overflow — ERROR
+title: connection WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: [Errno 111] Connection refused
+
+## wu_stream_overflow — ERROR
+title: stream WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: [Errno 111] Connection refused
+
+## settings_iw_overflow — ERROR
+title: SETTINGS_INITIAL_WINDOW_SIZE overflow handling
+rfc:   RFC 9113 §6.9.2
+detail: [Errno 111] Connection refused
+
+## cleanup_overcredit — PASS
+title: queued-DATA cleanup must not push connection window above MAX
+rfc:   RFC 9113 §6.9 / CWE-191 class (nginx CVE-2026-123007 accounting)
+detail: not applicable / not proven: [Errno 111] Connection refused

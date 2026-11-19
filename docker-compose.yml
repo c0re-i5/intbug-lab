@@ -1,0 +1,73 @@
+# Loopback-only lab targets for the HTTP/2 flow-control battery.
+# Never change binds to 0.0.0.0.
+# Digests must match ours/targets.py and scripts/lab-up-targets.sh.
+services:
+  nginx-1318:
+    image: nginx@sha256:5ab5b0b01097420873a3f3330f44248e34a3c2a3e8d5ee30658aeae8cb7435da
+    platform: linux/amd64
+    container_name: integer-lab-nginx-1318
+    ports: ["127.0.0.1:19443:443"]
+    volumes: ["./conf/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    entrypoint: ["sh","-c","openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/nginx-h2.key -out /tmp/nginx-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec nginx -g 'daemon off;'"]
+
+  nginx-http2-off:
+    image: nginx@sha256:5ab5b0b01097420873a3f3330f44248e34a3c2a3e8d5ee30658aeae8cb7435da
+    platform: linux/amd64
+    container_name: integer-lab-nginx-neg
+    ports: ["127.0.0.1:19444:443"]
+    volumes: ["./conf/nginx-http2-off.conf:/etc/nginx/nginx.conf:ro"]
+    entrypoint: ["sh","-c","openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/nginx-h2.key -out /tmp/nginx-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec nginx -g 'daemon off;'"]
+
+  httpd-2471:
+    image: httpd@sha256:32e9403360ab2f1047523e72f256527fb9aee68b342abf6ad03f0d629157f3d9
+    platform: linux/amd64
+    container_name: integer-lab-httpd
+    ports: ["127.0.0.1:19445:443"]
+    volumes:
+      - ./conf/apache/htdocs:/usr/local/apache2/htdocs-lab:ro
+      - ./conf/apache/entrypoint.sh:/entrypoint-lab.sh:ro
+    entrypoint: ["sh","/entrypoint-lab.sh"]
+
+  nginx-1319:
+    image: nginx@sha256:08f354a3b44c422021a5c0f5efb3e27f8f90236b5447d3bac4053f5f50ab6760
+    platform: linux/amd64
+    container_name: integer-lab-nginx-1319
+    ports: ["127.0.0.1:19446:443"]
+    volumes: ["./conf/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    entrypoint: ["sh","-c","openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/nginx-h2.key -out /tmp/nginx-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec nginx -g 'daemon off;'"]
+
+  caddy-210:
+    image: caddy@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    platform: linux/amd64
+    container_name: integer-lab-caddy
+    ports: ["127.0.0.1:19447:443"]
+    volumes:
+      - ./conf/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./conf/shared/index.html:/srv/index.html:ro
+      - ./certs/lab.crt:/certs/lab.crt:ro
+      - ./certs/lab.key:/certs/lab.key:ro
+
+  envoy-132:
+    image: envoyproxy/envoy@sha256:6bf0d37dd5e8eac4b37effe89a1aec4760f7f2ce860d1fd6af22147eb87a5058
+    platform: linux/amd64
+    container_name: integer-lab-envoy
+    ports: ["127.0.0.1:19448:10000"]
+    volumes:
+      - ./conf/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - ./certs/lab.crt:/certs/lab.crt:ro
+      - ./certs/lab.key:/certs/lab.key:ro
+    command: ["-c", "/etc/envoy/envoy.yaml"]
+
+  # go-nethttp and nghttpd are built locally (see scripts/lab-up-targets.sh);
+  # compose entries below assume the tagged images already exist.
+  go-nethttp:
+    image: integer-lab-go:pinned
+    platform: linux/amd64
+    container_name: integer-lab-go
+    ports: ["127.0.0.1:19449:443"]
+
+  nghttpd:
+    image: integer-lab-nghttpd:pinned
+    platform: linux/amd64
+    container_name: integer-lab-nghttpd
+    ports: ["127.0.0.1:19450:443"]

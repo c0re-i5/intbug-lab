@@ -1,0 +1,27 @@
+# wu_zero_stream framing capture — httpd-2.4.71
+url: https://127.0.0.1:19445/
+rfc: RFC 9113 §6.9.1 — WINDOW_UPDATE increment 0 MUST be connection PROTOCOL_ERROR
+probe_frame_hex: 00000408000000000100000000
+probe_frame_layout: len=4 type=WINDOW_UPDATE(0x08) flags=0 stream=1 payload=00000000
+
+## sent
+## HEADERS GET stream=1 (NO END_STREAM, h2spec-aligned) (41 bytes)
+0000  00 00 20 01 04 00 00 00 01 82 87 01 0f 31 32 37   .. ..........127
+0010  2e 30 2e 30 2e 31 3a 31 39 34 34 35 04 0b 2f 69   .0.0.1:19445../i
+0020  6e 64 65 78 2e 68 74 6d 6c                        ndex.html
+hex=0000200104000000018287010f3132372e302e302e313a3139343435040b2f696e6465782e68746d6c
+
+## WINDOW_UPDATE stream=1 increment=0 (RFC-illegal) (13 bytes)
+0000  00 00 04 08 00 00 00 00 01 00 00 00 00            .............
+hex=00000408000000000100000000
+
+## received after WU(0)
+alive=False
+goaway_error=1
+rst_stream_1=False
+ping_acked_after=False
+frames_after_wu:
+  GOAWAY flags=0x00 stream=0 len=49 last_stream=1 error=1
+
+## classification: REJECTED_STRICT (GOAWAY PROTOCOL_ERROR) — PASS vs RFC
+Honesty: this is an RFC-conformance observation, NOT a CVE claim.

@@ -1,0 +1,97 @@
+Manual-review notes — 2026-11-19 America/Toronto
+=================================================
+
+These are NOT confirmed vulnerabilities / NOT assigned CVE claims.
+They are battery observations that deviate from a strict reading of RFC 9113
+or that need a second look before anyone treats them as security bugs.
+
+----------------------------------------------------------------------
+CORRECTED (this slice): wu_zero_stream probe artifact
+----------------------------------------------------------------------
+
+PRIOR claim (widen slice): httpd / envoy / nghttpd FAIL on wu_zero_stream
+(= "accepted zero stream WINDOW_UPDATE").
+
+ROOT CAUSE: our probe sent GET with END_STREAM, drained the response, then
+sent WINDOW_UPDATE(stream=1, incr=0) on a closed/half-closed stream. Several
+stacks silently ignore illegal WUs in that state. That is a *probe artifact*,
+not an RFC-conformance finding.
+
+FIX (this slice): open stream with HEADERS flags=END_HEADERS only (no
+END_STREAM), send WU(0) immediately — matches h2spec http2/6.9/2.
+
+RESULT after fix (framing capture + battery + h2spec):
+  nginx-1.31.8 / nginx-1.31.9 / httpd-2.4.71 / nghttpd → PASS
+      (GOAWAY PROTOCOL_ERROR). Byte-identical WU frame:
+      00 00 04 08 00 00 00 00 01 00 00 00 00
+  caddy-2.10 / go-nethttp → ANOMALY (RST_STREAM PROTOCOL_ERROR on stream;
+      connection kept). h2spec still ✔-passes these.
+  envoy-1.32 → ANOMALY (hard close, no GOAWAY). h2spec ✔-passes
+      (treats connection closed as rejection).
+
+h2spec (bin/h2spec v2.6.0) http2/6.9/1 + http2/6.9/2: 2/2 passed on ALL
+seven h2 targets. Evidence under evidence/zero-wu/.
+
+Honesty: the earlier "shared FAIL across Apache/Envoy/nghttpd" is WITHDRAWN
+as a conformance claim. Remaining ANOMALYs are stream-scoped / hard-close
+rejection styles, still NOT CVE claims.
+
+----------------------------------------------------------------------
+PRIOR (slice 3 — nginx / Apache) — still open, not CVE claims
+----------------------------------------------------------------------
+
+1) httpd-2.4.71 :: wu_stream_overflow = ANOMALY
+   RST_STREAM FLOW_CONTROL_ERROR on stream; connection kept.
+   RFC §6.9.1 wants connection error. Not a CVE.
+
+2) httpd-2.4.71 :: settings_iw_overflow = ANOMALY
+   Same stream-RST pattern. Not a CVE.
+
+3) nginx-1.31.8 and nginx-1.31.9 :: wu_stream_overflow = FAIL
+   Open-stream MAX then +1 stayed up / PING. Present on BOTH vuln and
+   patched → NOT a CVE-2026-123007 discriminator. Needs further h2spec
+   6.9.1 overflow cross-check.
+
+4) nginx-1.31.8 and nginx-1.31.9 :: settings_iw_overflow = FAIL
+   Same — on both builds → not the CVE discriminator.
+
+----------------------------------------------------------------------
+Widen + graceful slice notes
+----------------------------------------------------------------------
+
+5) caddy-2.10 / go-nethttp :: wu_zero_stream = ANOMALY
+   RST_STREAM only (see corrected section above). Go HTTP/2 family.
+   h2spec passes. Not a CVE.
+
+6) caddy / go / nghttpd / httpd / envoy :: wu_stream_overflow = ANOMALY
+   Stream RST or hard close; connection-level RFC reaction not observed.
+   Not a CVE.
+
+7) envoy-1.32 :: wu_zero_conn / wu_conn_overflow = ANOMALY
+   Hard close without GOAWAY. Restart container between runs
+   (restart_container hook). Not a CVE.
+
+8) envoy Range limitation
+   direct_response (even file-backed) ignores HTTP Range. cleanup_overcredit
+   still completes under ku=0/small-carrier, but window-exhaustion via Range
+   is degraded on this target. Documented; not claimed as a bug in Envoy.
+
+9) cleanup_overcredit profiles (this slice)
+   nginx-1.31.8 / nginx-1.31.9 / httpd: full KeyUpdate pressure
+     (key_updates=262144, carrier=7340032) — COMPLETED.
+   caddy / envoy / go / nghttpd: key_updates=0, carrier=200000 — COMPLETED.
+     Full KeyUpdate flight → Broken pipe on those stacks. We do NOT map
+     Broken pipe to PASS anymore; Status.INCONCLUSIVE exists for incomplete
+     runs. Current matrix PASSes are real completed NOT_PROVEN verdicts
+     under the soft profile — NOT "confirmed clean under nginx pressure".
+
+----------------------------------------------------------------------
+CONFIRMED bug-class signal (lab-validated against public PoC)
+----------------------------------------------------------------------
+  nginx-1.31.8 :: cleanup_overcredit = FAIL  (invariant broken; matches arkrwn --safe)
+  nginx-1.31.9 :: cleanup_overcredit = PASS  (patched; full pressure)
+  httpd-2.4.71 :: cleanup_overcredit = PASS  (full pressure; no nginx accounting signal)
+  caddy / envoy / go / nghttpd :: cleanup_overcredit = PASS
+      (completed under ku=0/small-carrier; signal not observed)
+
+No new CVE claims from this slice.

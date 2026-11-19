@@ -1,0 +1,21 @@
+widen-slice environment — 2026-11-18 23:43:02 EST America/Toronto
+docker: 27.5.1
+python: Python 3.13.5
+targets up:
+integer-lab-envoy Up 44 seconds 127.0.0.1:19448->10000/tcp
+integer-lab-go Up 10 minutes 127.0.0.1:19449->443/tcp
+integer-lab-nghttpd Up 11 minutes 127.0.0.1:19450->443/tcp
+integer-lab-caddy Up 11 minutes 80/tcp, 2019/tcp, 443/udp, 127.0.0.1:19447->443/tcp
+integer-lab-httpd Up 2 hours 80/tcp, 127.0.0.1:19445->443/tcp
+integer-lab-nginx-1319 Up 2 hours 80/tcp, 127.0.0.1:19446->443/tcp
+integer-lab-nginx-neg Up 2 hours 80/tcp, 127.0.0.1:19444->443/tcp
+integer-lab-nginx-1318 Up 2 hours 80/tcp, 127.0.0.1:19443->443/tcp
+images:
+  nginx@sha256:5ab5b0b01097420873a3f3330f44248e34a3c2a3e8d5ee30658aeae8cb7435da
+  nginx@sha256:08f354a3b44c422021a5c0f5efb3e27f8f90236b5447d3bac4053f5f50ab6760
+  httpd@sha256:32e9403360ab2f1047523e72f256527fb9aee68b342abf6ad03f0d629157f3d9
+  caddy@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+  envoyproxy/envoy@sha256:6bf0d37dd5e8eac4b37effe89a1aec4760f7f2ce860d1fd6af22147eb87a5058
+  golang@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac
+  debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+local builds: integer-lab-go:pinned integer-lab-nghttpd:pinned

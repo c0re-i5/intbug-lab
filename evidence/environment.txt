@@ -1,0 +1,14 @@
+=== Environment snapshot Wed, 18 Nov 2026 21:17:04 -0500 ===
+host: Linux grok-bot-vm-524102593 6.12.113+ #1 SMP PREEMPT_DYNAMIC Mon Nov 16 16:06:22 UTC 2026 x86_64 GNU/Linux
+Docker version 27.5.1, build 9f9e405
+REPOSITORY   TAG       DIGEST                                                                    IMAGE ID       CREATED       SIZE
+nginx        <none>    sha256:5ab5b0b01097420873a3f3330f44248e34a3c2a3e8d5ee30658aeae8cb7435da   1ebe58b0003b   3 weeks ago   163MB
+CONTAINER ID   IMAGE     COMMAND                   CREATED              STATUS              PORTS                              NAMES
+22d4a94aff90   nginx     "sh -c '\n    openssl…"   About a minute ago   Up About a minute   80/tcp, 127.0.0.1:19443->443/tcp   integer-lab-nginx-1318
+CVE-2026-123007 nginx HTTP/2 proof of concept
+
+Usage: poc-safe [OPTIONS]
+--: line 200: nginx: command not found
+nginx version: nginx/1.31.8
+rustc 1.100.0 (0ef1bc386 2026-11-09)
+rustc 1.100.0 (0ef1bc386 2026-11-09)

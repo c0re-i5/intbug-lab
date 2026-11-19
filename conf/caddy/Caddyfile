@@ -1,0 +1,14 @@
+{
+	admin off
+	auto_https disable_redirects
+	log {
+		output stderr
+		level ERROR
+	}
+}
+
+:443 {
+	tls /certs/lab.crt /certs/lab.key
+	root * /srv
+	file_server
+}

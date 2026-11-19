@@ -1,0 +1,32 @@
+--- envoy-1.32 :: h2_alpn ---
+    => PASS: ALPN h2 negotiated
+--- envoy-1.32 :: wu_zero_conn ---
+    => ANOMALY: connection closed without GOAWAY PROTOCOL_ERROR — needs manual review
+--- envoy-1.32 :: wu_zero_stream ---
+    => FAIL: accepted zero stream WINDOW_UPDATE (connection still usable)
+--- envoy-1.32 :: wu_conn_overflow ---
+    => ANOMALY: rejected-ish but not GOAWAY FLOW_CONTROL_ERROR (goaway=None, alive=False)
+--- envoy-1.32 :: wu_stream_overflow ---
+    => ANOMALY: unclear (goaway=None, alive=False)
+--- envoy-1.32 :: settings_iw_overflow ---
+    => ANOMALY: stream RST FLOW_CONTROL_ERROR, connection kept — RFC wants connection error; NOT claimed as a vulnerability by itself
+
+probe                | envoy-1.32
+---------------------------------
+h2_alpn              | PASS      
+wu_zero_conn         | ANOMALY   
+wu_zero_stream       | FAIL      
+wu_conn_overflow     | ANOMALY   
+wu_stream_overflow   | ANOMALY   
+settings_iw_overflow | ANOMALY   
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); SKIP=not applicable; ERROR=harness failure
+wrote /workspace/intbug-lab/evidence/BATTERY-envoy-1.32-20261118-234152.txt
+
+=== Summary flags ===
+ANOMALY  envoy-1.32           wu_zero_conn: connection closed without GOAWAY PROTOCOL_ERROR — needs manual review [NOT a confirmed vulnerability — manual review]
+FAIL     envoy-1.32           wu_zero_stream: accepted zero stream WINDOW_UPDATE (connection still usable)
+ANOMALY  envoy-1.32           wu_conn_overflow: rejected-ish but not GOAWAY FLOW_CONTROL_ERROR (goaway=None, alive=False) [NOT a confirmed vulnerability — manual review]
+ANOMALY  envoy-1.32           wu_stream_overflow: unclear (goaway=None, alive=False) [NOT a confirmed vulnerability — manual review]
+ANOMALY  envoy-1.32           settings_iw_overflow: stream RST FLOW_CONTROL_ERROR, connection kept — RFC wants connection error; NOT claimed as a vulnerability by itself [NOT a confirmed vulnerability — manual review]
+matrix: /workspace/intbug-lab/evidence/BATTERY-MATRIX-20261118-234152.txt

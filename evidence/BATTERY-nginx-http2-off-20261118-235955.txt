@@ -1,0 +1,7 @@
+# nginx-http2-off — nginx 1.31.8 TLS-only (http2 off)
+url: https://127.0.0.1:19444/
+
+## wu_zero_stream — SKIP
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: target does not speak h2

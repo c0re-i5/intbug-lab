@@ -1,0 +1,2 @@
+[*] target https://127.0.0.1:19444/ mode=safe resource=/index.html
+[-] NOT PROVEN: target does not negotiate HTTP/2 (ALPN h2) over TLS

@@ -1,0 +1,14 @@
+[*] TLS+ALPN h2 ok → 127.0.0.1:19443 path=/index.html
+[*] learned body_size=896
+[*] initial window exhausted (2 probe + 71 full + range 0-126)
+[*] queued targets streams=149,151 under backpressure
+[*] sending cleanup flight (carrier+event=7340032 bytes, key_updates=262144)
+[*] observations: rst={149: 3, 151: 3} canary=10 ping_ack=True alive=True
+[+] INVARIANT VIOLATION: VULNERABLE  target=https://127.0.0.1:19443/
+    [1] queued_data_refund_resets   : PASS (expected RST FLOW_CONTROL_ERROR on [149, 151]; got {149: 3, 151: 3})
+    [2] public_byte_release         : PASS (canary 10 bytes vs expected 10)
+    [3] underflowed_wu_guard        : PASS (post-refund PING ACK)
+    [4] connection_still_usable     : PASS (canary DATA + PING ACK on same connection)
+    note: Invariant: connection send_window must remain in [0, MAX=2^31-1]. Accepting a MAX WINDOW_UPDATE after a queued-DATA refund that drove the counter above MAX is the underflowed-guard failure (CWE-191).
+    note: This oracle proves the *accounting* bug only. It does not walk the counter to 2^64 and does not prove memory corruption or RCE.
+    meta: body=896 carrier=7340032 key_updates=262144

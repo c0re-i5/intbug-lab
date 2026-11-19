@@ -1,0 +1,58 @@
+# h2spec §6.9 zero-WU cross-check
+# Wed Nov 18 23:58:39 EST 2026
+# cases: http2/6.9/1 (conn WU incr 0), http2/6.9/2 (stream WU incr 0)
+
+--- nginx-1.31.8 (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+23:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+26:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- httpd-2.4.71 (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+20:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+23:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- nginx-1.31.9 (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+23:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+26:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- caddy-2.10 (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+20:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+23:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- envoy-1.32 (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+20:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+23:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- go-nethttp (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+7:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+11:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+15:           [recv] WINDOW_UPDATE Frame (length:4, flags:0x00, stream_id:0)
+20:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+23:2 tests, 2 passed, 0 skipped, 0 failed
+
+--- nghttpd (exit 0) ---
+3:    6.9. WINDOW_UPDATE
+10:      ✔ 1: Sends a WINDOW_UPDATE frame with a flow control window increment of 0
+18:      ✔ 2: Sends a WINDOW_UPDATE frame with a flow control window increment of 0 on a stream
+21:2 tests, 2 passed, 0 skipped, 0 failed
+

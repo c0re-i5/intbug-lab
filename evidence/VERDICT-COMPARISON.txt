@@ -1,0 +1,14 @@
+Verdict comparison — 2026-11-18 America/Toronto (box lab)
+
+Target A: nginx 1.31.8 HTTP/2+TLS on 127.0.0.1:19443
+  arkrwn --safe : VULNERABLE exit 0  (evidence/COMPARE-arkrwn-vuln.txt / PROOF-VULNERABLE-1.31.8.txt)
+  ours          : VULNERABLE exit 0  (evidence/OURS-VULNERABLE-1.31.8.txt)
+  AGREEMENT     : YES (all four conceptual checks PASS on both)
+
+Target B: nginx 1.31.8 TLS only (http2 off) on 127.0.0.1:19444
+  arkrwn --safe : NOT PROVEN exit 4  (evidence/COMPARE-arkrwn-neg.txt)
+  ours          : NOT PROVEN exit 4  (evidence/OURS-NEGATIVE-http2-off.txt)
+  AGREEMENT     : YES (no ALPN h2)
+
+Ours proves: accounting over-credit + underflowed WINDOW_UPDATE guard only.
+Ours does not: 2^64 walk, crash, or RCE.

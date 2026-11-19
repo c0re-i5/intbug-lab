@@ -1,0 +1,89 @@
+--- nginx-1.31.8 :: h2_alpn ---
+    => PASS: ALPN h2 negotiated
+--- nginx-1.31.8 :: wu_zero_conn ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-1.31.8 :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-1.31.8 :: wu_conn_overflow ---
+    => PASS: GOAWAY FLOW_CONTROL_ERROR
+--- nginx-1.31.8 :: wu_stream_overflow ---
+    => FAIL: accepted stream WU that overflows MAX
+--- nginx-1.31.8 :: settings_iw_overflow ---
+    => FAIL: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+--- nginx-1.31.8 :: cleanup_overcredit ---
+[*] TLS+ALPN h2 ok → 127.0.0.1:19443 path=/index.html
+[*] learned body_size=896
+[*] initial window exhausted (2 probe + 71 full + range 0-126)
+[*] queued targets streams=149,151 under backpressure
+[*] sending cleanup flight (carrier+event=7340032 bytes, key_updates=262144)
+[*] observations: rst={149: 3, 151: 3} canary=10 ping_ack=True alive=True
+    => FAIL: INVARIANT BROKEN: cleanup over-credit + underflowed WU guard (accounting bug class)
+--- nginx-http2-off :: h2_alpn ---
+    => PASS: TLS alert without h2 (expected): [SSL: TLSV1_ALERT_NO_APPLICATION_PROTOCOL] tlsv1 alert no application protocol (_ssl.c:1029)
+--- httpd-2.4.71 :: h2_alpn ---
+    => PASS: ALPN h2 negotiated
+--- httpd-2.4.71 :: wu_zero_conn ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- httpd-2.4.71 :: wu_zero_stream ---
+    => FAIL: accepted zero stream WINDOW_UPDATE (connection still usable)
+--- httpd-2.4.71 :: wu_conn_overflow ---
+    => PASS: GOAWAY FLOW_CONTROL_ERROR
+--- httpd-2.4.71 :: wu_stream_overflow ---
+    => FAIL: accepted stream WU that overflows MAX
+--- httpd-2.4.71 :: settings_iw_overflow ---
+    => FAIL: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+--- httpd-2.4.71 :: cleanup_overcredit ---
+[*] TLS+ALPN h2 ok → 127.0.0.1:19445 path=/index.html
+[*] learned body_size=896
+[*] initial window exhausted (2 probe + 71 full + range 0-126)
+[*] queued targets streams=149,151 under backpressure
+[*] sending cleanup flight (carrier+event=7340032 bytes, key_updates=262144)
+[*] observations: rst={149: None, 151: None} canary=0 ping_ack=False alive=False
+    => PASS: accounting over-credit signal NOT proven
+--- nginx-1.31.9 :: h2_alpn ---
+    => PASS: ALPN h2 negotiated
+--- nginx-1.31.9 :: wu_zero_conn ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-1.31.9 :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-1.31.9 :: wu_conn_overflow ---
+    => PASS: GOAWAY FLOW_CONTROL_ERROR
+--- nginx-1.31.9 :: wu_stream_overflow ---
+    => FAIL: accepted stream WU that overflows MAX
+--- nginx-1.31.9 :: settings_iw_overflow ---
+    => FAIL: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+--- nginx-1.31.9 :: cleanup_overcredit ---
+[*] TLS+ALPN h2 ok → 127.0.0.1:19446 path=/index.html
+[*] learned body_size=896
+[*] initial window exhausted (2 probe + 71 full + range 0-126)
+[*] queued targets streams=149,151 under backpressure
+[*] sending cleanup flight (carrier+event=7340032 bytes, key_updates=262144)
+[*] observations: rst={149: None, 151: None} canary=0 ping_ack=False alive=False
+    => PASS: accounting over-credit signal NOT proven
+
+probe                | nginx-1.31.8    | nginx-http2-off | httpd-2.4.71    | nginx-1.31.9   
+--------------------------------------------------------------------------------------------
+h2_alpn              | PASS            | PASS            | PASS            | PASS           
+wu_zero_conn         | PASS            | -               | PASS            | PASS           
+wu_zero_stream       | PASS            | -               | FAIL            | PASS           
+wu_conn_overflow     | PASS            | -               | PASS            | PASS           
+wu_stream_overflow   | FAIL            | -               | FAIL            | FAIL           
+settings_iw_overflow | FAIL            | -               | FAIL            | FAIL           
+cleanup_overcredit   | FAIL            | -               | PASS            | PASS           
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); SKIP=not applicable; ERROR=harness failure
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-1.31.8-20261118-213723.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-http2-off-20261118-213723.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-httpd-2.4.71-20261118-213723.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-1.31.9-20261118-213723.txt
+
+=== Summary flags ===
+FAIL     nginx-1.31.8         wu_stream_overflow: accepted stream WU that overflows MAX
+FAIL     nginx-1.31.8         settings_iw_overflow: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+FAIL     nginx-1.31.8         cleanup_overcredit: INVARIANT BROKEN: cleanup over-credit + underflowed WU guard (accounting bug class)
+FAIL     httpd-2.4.71         wu_zero_stream: accepted zero stream WINDOW_UPDATE (connection still usable)
+FAIL     httpd-2.4.71         wu_stream_overflow: accepted stream WU that overflows MAX
+FAIL     httpd-2.4.71         settings_iw_overflow: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+FAIL     nginx-1.31.9         wu_stream_overflow: accepted stream WU that overflows MAX
+FAIL     nginx-1.31.9         settings_iw_overflow: SETTINGS overflow appeared to be accepted with no RST/GOAWAY
+matrix: /workspace/intbug-lab/evidence/BATTERY-MATRIX-20261118-213723.txt

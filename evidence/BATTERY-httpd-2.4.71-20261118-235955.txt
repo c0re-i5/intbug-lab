@@ -1,0 +1,12 @@
+# httpd-2.4.71 — Apache httpd 2.4.71 + mod_http2
+url: https://127.0.0.1:19445/
+
+## wu_zero_stream — PASS
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+  evidence: rst=[]
+  evidence: opened_without_end_stream=1
+  evidence: wu_frame_hex=00000408000000000100000000

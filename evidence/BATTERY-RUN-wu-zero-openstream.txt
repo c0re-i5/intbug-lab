@@ -1,0 +1,38 @@
+--- nginx-1.31.8 :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-http2-off :: wu_zero_stream ---
+    => SKIP: target does not speak h2
+--- httpd-2.4.71 :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- nginx-1.31.9 :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+--- caddy-2.10 :: wu_zero_stream ---
+    => ANOMALY: RST_STREAM on stream only; RFC wants connection PROTOCOL_ERROR (h2spec treats this as pass)
+[*] restarting container integer-lab-envoy
+--- envoy-1.32 :: wu_zero_stream ---
+    => ANOMALY: connection closed without GOAWAY PROTOCOL_ERROR — needs manual review
+[*] restarting container integer-lab-envoy
+--- go-nethttp :: wu_zero_stream ---
+    => ANOMALY: RST_STREAM on stream only; RFC wants connection PROTOCOL_ERROR (h2spec treats this as pass)
+--- nghttpd :: wu_zero_stream ---
+    => PASS: GOAWAY PROTOCOL_ERROR
+
+probe          | nginx-1.31.8    | nginx-http2-off | httpd-2.4.71    | nginx-1.31.9    | caddy-2.10      | envoy-1.32      | go-nethttp      | nghttpd        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+wu_zero_stream | PASS            | SKIP            | PASS            | PASS            | ANOMALY         | ANOMALY         | ANOMALY         | PASS           
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-1.31.8-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-http2-off-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-httpd-2.4.71-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-nginx-1.31.9-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-caddy-2.10-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-envoy-1.32-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-go-nethttp-20261118-235955.txt
+wrote /workspace/intbug-lab/evidence/BATTERY-nghttpd-20261118-235955.txt
+
+=== Summary flags ===
+ANOMALY       caddy-2.10           wu_zero_stream: RST_STREAM on stream only; RFC wants connection PROTOCOL_ERROR (h2spec treats this as pass) [NOT a confirmed vulnerability — manual review]
+ANOMALY       envoy-1.32           wu_zero_stream: connection closed without GOAWAY PROTOCOL_ERROR — needs manual review [NOT a confirmed vulnerability — manual review]
+ANOMALY       go-nethttp           wu_zero_stream: RST_STREAM on stream only; RFC wants connection PROTOCOL_ERROR (h2spec treats this as pass) [NOT a confirmed vulnerability — manual review]
+matrix: /workspace/intbug-lab/evidence/BATTERY-MATRIX-20261118-235955.txt

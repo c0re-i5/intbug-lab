@@ -1,0 +1,4 @@
+[*] driver stopped: [SSL: TLSV1_ALERT_NO_APPLICATION_PROTOCOL] tlsv1 alert no application protocol (_ssl.c:1029)
+[-] NOT PROVEN  target=https://127.0.0.1:19444/
+    [1] alpn_h2                     : FAIL (peer did not negotiate HTTP/2 (ALPN h2))
+    note: No HTTP/2 session — invariant not applicable.

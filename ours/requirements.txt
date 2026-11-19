@@ -1,0 +1,3 @@
+# Slice 2 driver uses the Python stdlib only (ssl, socket, ctypes).
+# Optional: h2 is installed in ../.venv for future generalization experiments.
+# h2>=4.1.0

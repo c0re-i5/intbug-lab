@@ -5,11 +5,14 @@ counter / length integer-bug class (CWE-191), validated against nginx
 CVE-2026-123007.
 
 **Validated result:** the `cleanup_overcredit` probe **FAIL**s on nginx 1.31.8
-(known-vulnerable) and **PASS**es on nginx 1.31.9 (patched), on Apache,
-Caddy, Envoy, Go `net/http`, nghttpd, on OpenResty 1.31.8.1, on Node.js
-stdlib `http2`, on HAProxy 3.0.31, and on OpenLiteSpeed 1.9.4 Open. The nginx
-pair matches arkrwn's public `--safe` PoC on the same listeners. Twelve
-loopback targets; seven RFC 9113 probes; one-command run.
+(known-vulnerable) and on **no other** target. It **PASS**es on nginx 1.31.9
+(patched) and on the 9 other HTTP/2 stacks: Apache httpd, Caddy, Envoy, Go
+`net/http`, nghttpd, OpenResty 1.31.8.1, Node.js stdlib `http2`, HAProxy 3.0.31,
+and OpenLiteSpeed 1.9.4 Open (10 PASSes in total). `nginx-http2-off` is the
+negative control. The nginx pair matches arkrwn's public `--safe` PoC on the
+same listeners. Twelve loopback targets; seven RFC 9113 probes; one-command run.
+A PASS means the accounting signal was not observed, not that the server is
+immune. See [Limitations](#limitations-read-before-quoting-a-pass).
 
 Longer write-up: **[WRITEUP.md](WRITEUP.md)**.
 
@@ -130,22 +133,37 @@ Statuses: **PASS** (invariant held), **FAIL** (invariant broken — bug-class si
 Heavy probe `cleanup_overcredit` ≈ 14 MiB / ~45s per target. Skip with
 `./scripts/run-battery.sh --skip-heavy` or `make battery-light`.
 
-## Results matrix (this box, 2026-11-19 America/Toronto)
+## Results matrix (one full run, 2026-11-19 America/Toronto)
 
-From `evidence/BATTERY-MATRIX-latest.txt`. The OpenLiteSpeed column is this
-slice (one full battery). The other columns are the prior HAProxy matrix and
-were not re-run.
+Single `./scripts/run-all.sh` on `main` (full, not `--skip-heavy`): all 12 targets
+brought up fresh, all 12 smoked HTTP/2 200 (except the `nginx-http2-off` negative
+control, which correctly answers HTTP/1.1), unit tests 28 OK, harness exit 0, no
+`ERROR` cells. Every column below comes from that one run
+(`evidence/BATTERY-MATRIX-20261119-173219.txt`; `BATTERY-MATRIX-latest.txt` is a
+copy). Wall time about 4 min 54 s.
+
+**Headline:** `cleanup_overcredit` is the discriminator. It **FAIL**s on nginx
+1.31.8 only, and **PASS**es on the 10 other HTTP/2 stacks (nginx 1.31.9, Apache
+httpd, Caddy, Envoy, Go `net/http`, nghttpd, OpenLiteSpeed Open, OpenResty,
+Node.js `http2`, HAProxy). The `nginx-http2-off` column is the negative control
+(same image as 1.31.8 with `http2` off): the overflow/cleanup probes are `-`
+(not applicable), and `h2_alpn` PASSes because it checks that `h2` is absent.
 
 ```
-probe                | nginx-1.31.8 | nginx-http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy-2.10 | envoy-1.32 | go-nethttp | nghttpd | openresty-1.31.8.1 | node-http2 | haproxy-3.0 | openlitespeed-1.9.4
-h2_alpn              | PASS         | PASS            | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS                | PASS       | PASS        | PASS
-wu_zero_conn         | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS                | PASS       | PASS        | PASS
-wu_zero_stream       | PASS         | -               | PASS         | PASS         | ANOMALY    | ANOMALY    | ANOMALY    | PASS    | PASS                | ANOMALY    | ANOMALY     | ANOMALY
-wu_conn_overflow     | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS                | PASS       | PASS        | PASS
-wu_stream_overflow   | FAIL         | -               | ANOMALY      | FAIL         | ANOMALY    | ANOMALY    | ANOMALY    | ANOMALY | FAIL                | ANOMALY    | ANOMALY     | ANOMALY
-settings_iw_overflow | FAIL         | -               | ANOMALY      | FAIL         | PASS       | ANOMALY    | PASS       | ANOMALY | FAIL                | ANOMALY    | FAIL        | FAIL
-cleanup_overcredit   | FAIL         | -               | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS                | PASS       | PASS        | PASS
+probe                | nginx-1.31.8 | nginx-http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy-2.10 | envoy-1.32 | go-nethttp | nghttpd | openlitespeed-1.9.4 | openresty-1.31.8.1 | node-http2 | haproxy-3.0
+h2_alpn              | PASS         | PASS            | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS                | PASS               | PASS       | PASS
+wu_zero_conn         | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS                | PASS               | PASS       | PASS
+wu_zero_stream       | PASS         | -               | PASS         | PASS         | ANOMALY    | ANOMALY    | ANOMALY    | PASS    | ANOMALY             | PASS               | ANOMALY    | ANOMALY
+wu_conn_overflow     | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS                | PASS               | PASS       | PASS
+wu_stream_overflow   | FAIL         | -               | ANOMALY      | FAIL         | ANOMALY    | ANOMALY    | ANOMALY    | ANOMALY | ANOMALY             | FAIL               | ANOMALY    | ANOMALY
+settings_iw_overflow | FAIL         | -               | ANOMALY      | FAIL         | PASS       | ANOMALY    | PASS       | ANOMALY | FAIL                | FAIL               | ANOMALY    | FAIL
+cleanup_overcredit   | FAIL         | -               | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS                | PASS               | PASS       | PASS
 ```
+
+Legend: `PASS` invariant held; `FAIL` invariant broken; `ANOMALY` needs manual
+review (not a finding); `-` probe not applicable (HTTP/2 off). Only
+`cleanup_overcredit` is a CVE-class discriminator. Other FAIL/ANOMALY cells are
+triaged below.
 
 `cleanup_overcredit` **completes** on all 11 h2 targets (no Broken-pipe soft-PASS).
 caddy/envoy/go/nghttpd/node/haproxy/openlitespeed use `key_updates=0` / `carrier=200000` (full KeyUpdate
@@ -211,6 +229,48 @@ h2spec http2/6.9/1+2 cross-check transcripts are under `evidence/zero-wu/` (opti
 - We never invent CVE IDs from this lab alone.
 
 Latest matrix: `evidence/BATTERY-MATRIX-latest.txt`. Dated copies are kept alongside.
+
+## ANOMALY / FAIL triage (hand review, not findings)
+
+Every ANOMALY cell and every `settings_iw_overflow` / nginx-family overflow FAIL
+in the matrix was reviewed by hand against per-target transcripts, framing
+captures, and h2spec where available. Full table: [`evidence/ANOMALY-TRIAGE.md`](evidence/ANOMALY-TRIAGE.md).
+Summary (26 reviewed cells):
+
+| Verdict | Cells | Meaning |
+|---------|-------|---------|
+| **IGNORE** | 13 | Stream-scoped `RST_STREAM` instead of a connection `GOAWAY` (Caddy, Go, HAProxy, OpenLiteSpeed, httpd, nghttpd, Envoy `settings_iw_overflow`). RFC 9113 prefers a connection error; h2spec still passes. Strictness gap, not a security signal. |
+| **WATCH** | 9 | Hard close with no `GOAWAY` (Envoy, Node), or a `settings_iw_overflow` FAIL on HAProxy / OpenLiteSpeed that is most likely probe early-completion: the request already has `END_STREAM` and the 896-byte body finishes inside the credit before an overflow is forced. Opaque or harness-limited; kept on the matrix. |
+| **DIG** | 4 | `wu_stream_overflow` and `settings_iw_overflow` FAIL on nginx 1.31.8, nginx 1.31.9 and OpenResty. They fire on the patched build too, so they are not the CVE-2026-123007 discriminator. Worth one conformance note (h2spec §6.9.1/§6.9.2 plus a framing capture of the MAX→MAX+1 flight), nothing more. |
+
+None of these is a vulnerability claim. The only cell that would escalate is a
+`cleanup_overcredit` FAIL on a stack that is not the already-known nginx line.
+
+## Limitations (read before quoting a PASS)
+
+- **KeyUpdate pressure is split.** nginx 1.31.8, nginx 1.31.9, OpenResty and
+  Apache httpd run `cleanup_overcredit` at full pressure (`key_updates=262144`,
+  `carrier=7340032`). Caddy, Envoy, Go, nghttpd, Node, HAProxy and OpenLiteSpeed
+  run the soft profile (`key_updates=0`, `carrier=200000`) because full pressure
+  breaks the connection (Broken pipe) on the earlier non-nginx stacks, and the
+  newer three were not driven at it. The soft-profile PASSes are therefore
+  weaker evidence than the full-pressure ones.
+- **PASS is not "immune".** PASS means the accounting signal was not observed
+  under that profile and that probe. Each non-nginx PASS is a single run.
+- **HAProxy has no Range.** `http-request return file` ignores `Range`, so the
+  fill/canary path is degraded there. The probe completed, but it is not a
+  like-for-like test of the nginx window math, and HAProxy in front of a real
+  backend is a different system.
+- **OpenLiteSpeed here is OLS 1.9.4 Open**, not LSWS Enterprise. Enterprise is a
+  different product and is not covered.
+- **Closed edges are out of scope.** Cloudflare, Fastly and Akamai are not
+  testable on loopback and are not covered. No internet scanning.
+- **OpenResty is not an independent implementation.** It is the nginx 1.31.8
+  line; a PASS there is not a claim that the build contains the nginx fix.
+- **Static 896-byte body.** Some probes (`settings_iw_overflow` on static or
+  `return` frontends) can score FAIL through early completion, not through an
+  accepted overflow.
+- No new CVE is claimed from this lab. Verdicts above are hand-review judgment.
 
 ## How to add a target (few lines)
 

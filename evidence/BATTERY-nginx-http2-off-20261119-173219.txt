@@ -1,0 +1,7 @@
+# nginx-http2-off — nginx 1.31.8 TLS-only (http2 off)
+url: https://127.0.0.1:19444/
+
+## h2_alpn — PASS
+title: ALPN negotiates h2
+rfc:   RFC 9113 §3.3 / RFC 7301
+detail: TLS alert without h2 (expected): [SSL: TLSV1_ALERT_NO_APPLICATION_PROTOCOL] tlsv1 alert no application protocol (_ssl.c:1029)

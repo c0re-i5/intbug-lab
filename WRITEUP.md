@@ -1,6 +1,6 @@
 # HTTP/2 Flow-Control Integer-Bug Lab
 
-**A reproducible lab that detects the HTTP/2 flow-control integer-bug class (CWE-191) and validates it against nginx CVE-2026-123007 across eleven loopback servers.**
+**A reproducible lab that detects the HTTP/2 flow-control integer-bug class (CWE-191) and validates it against nginx CVE-2026-123007 across twelve loopback servers.**
 
 *Research write-up — 2026-11-19 (America/Toronto)*
 
@@ -8,17 +8,17 @@
 
 ## Summary
 
-This project is a standalone, one-command lab for the **class** of HTTP/2 flow-control / counter / length integer bugs. It runs a seven-probe invariant battery against eleven loopback targets and **reliably distinguishes** the known nginx CVE-2026-123007 accounting bug from patched nginx and from every other stack under test.
+This project is a standalone, one-command lab for the **class** of HTTP/2 flow-control / counter / length integer bugs. It runs a seven-probe invariant battery against twelve loopback targets and **reliably distinguishes** the known nginx CVE-2026-123007 accounting bug from patched nginx and from every other stack under test.
 
-On nginx 1.31.8 (known-vulnerable), the `cleanup_overcredit` probe fails. On nginx 1.31.9 (patched) and on Apache, Caddy, Envoy, Go `net/http`, nghttpd, OpenResty 1.31.8.1, Node.js stdlib `http2`, and HAProxy 3.0.31, the same probe passes. The nginx pair matches arkrwn's public `--safe` PoC on the same listeners. OpenResty 1.31.8.1 is still the nginx 1.31.8 line and was run at full KeyUpdate pressure; the accounting signal was not observed. Node and HAProxy were run on the soft profile (`key_updates=0`, `carrier=200000`), same as Go and Caddy. Those PASSes are not a new CVE, and the OpenResty PASS is not a claim that this build contains the nginx fix. HAProxy answers from `http-request return file` and ignores Range. The method is target-agnostic; adding a server is a few lines in `ours/targets.py`.
+On nginx 1.31.8 (known-vulnerable), the `cleanup_overcredit` probe fails. On nginx 1.31.9 (patched) and on Apache, Caddy, Envoy, Go `net/http`, nghttpd, OpenResty 1.31.8.1, Node.js stdlib `http2`, HAProxy 3.0.31, and OpenLiteSpeed 1.9.4 Open, the same probe passes. The nginx pair matches arkrwn's public `--safe` PoC on the same listeners. OpenResty 1.31.8.1 is still the nginx 1.31.8 line and was run at full KeyUpdate pressure; the accounting signal was not observed. Node, HAProxy, and OpenLiteSpeed were run on the soft profile (`key_updates=0`, `carrier=200000`), same as Go and Caddy. Those PASSes are not a new CVE, and the OpenResty PASS is not a claim that this build contains the nginx fix. HAProxy answers from `http-request return file` and ignores Range. OpenLiteSpeed here is the open-source server, not commercial LSWS Enterprise, and its static files do implement Range. The method is target-agnostic; adding a server is a few lines in `ours/targets.py`.
 
 No new vulnerability is reported from this work. The deliverable is a **working, validated method** — not a one-CVE detector that expires when nginx is patched.
 
 | | |
 |---|---|
-| Targets | 11 loopback servers |
+| Targets | 12 loopback servers |
 | Probes | 7 RFC 9113 invariants |
-| Offline tests | 27 |
+| Offline tests | 28 |
 | CVE-class discriminator | `cleanup_overcredit` |
 
 ---
@@ -65,6 +65,7 @@ Three components:
 | `envoy-1.32` | Envoy | `127.0.0.1:19448` | `envoyproxy/envoy@sha256:6bf0d37d…` |
 | `go-nethttp` | Go `net/http` | `127.0.0.1:19449` | built from `golang@sha256:1a6d4452…` |
 | `nghttpd` | nghttp2 reference | `127.0.0.1:19450` | pinned `debian` base; apt `nghttp2-server` floats |
+| `openlitespeed-1.9.4` | OpenLiteSpeed 1.9.4 Open (not LSWS Enterprise) | `127.0.0.1:19451` | `litespeedtech/openlitespeed@sha256:48bc2719f2…` (`:1.9.4-lsphp82`) |
 | `openresty-1.31.8.1` | nginx-family (OpenResty, nginx 1.31.8 line) | `127.0.0.1:19452` | `openresty/openresty@sha256:2cb90d6419…` |
 | `haproxy-3.0` | HAProxy 3.0.31 LTS, `http-request return` | `127.0.0.1:19453` | `haproxy@sha256:7430e63d30…` (`:3.0-alpine` → 3.0.31) |
 | `node-http2` | Node.js stdlib `http2` | `127.0.0.1:19454` | built from `node@sha256:1314fb30ec…` (`:22-alpine` → v22.23.5) |
@@ -76,6 +77,8 @@ OpenResty 1.31.8.1 (`:alpine`) is still the nginx 1.31.8 line, so it is not an i
 Node.js `http2` is stdlib-only on a pinned `node:22-alpine` base (v22.23.5). Certs are the lab pair mounted at `/certs`, same as Caddy and Envoy. The server handles a single `Range` so the cleanup fill/canary path can run. It is published only on `127.0.0.1:19454`. The base digest is pinned; `server.js` is not separately hashed. The registered cleanup profile is the soft one.
 
 HAProxy 3.0.31 is one container on `127.0.0.1:19453`. TLS and ALPN `h2` are on the frontend, and `/` plus `/index.html` are served with `http-request return file` (no second backend). The entrypoint concatenates the lab cert and key into one PEM. The image user is `haproxy`; the lab entrypoint runs as root only so it can write that PEM. The publish stays loopback. HAProxy 3.0.31 does not accept a trailing backslash as a line continuation, so the return rule is a single line. `return file` ignores Range (smoke: HTTP/2 200, 896 bytes for `Range: bytes=0-9`). The registered cleanup profile is the soft one. Traefik was not selected.
+
+OpenLiteSpeed 1.9.4 Open is one container on `127.0.0.1:19451`. This is open-source OLS (`litespeedtech/openlitespeed`), not commercial LSWS Enterprise. The entrypoint copies the lab cert, sets `disableWebAdmin 1`, and points the HTTPS listener and the docker vhost at that cert with `enableSpdy 8`. WebAdmin 7080 is not published. The shared index is the docroot. Static Range works (smoke: HTTP/2 206, 10 bytes for `Range: bytes=0-9`). The lsphp image is heavy (unpacked about 726 MiB on this box). The registered cleanup profile is the soft one. The lab config is not separately hashed.
 
 ---
 
@@ -94,25 +97,26 @@ On the vulnerable build the oracle records RST `FLOW_CONTROL_ERROR` on the queue
 
 ## Results
 
-From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The HAProxy column is this slice; the other columns are the prior Node matrix and were not re-run.
+From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The OpenLiteSpeed column is this slice; the other columns are the prior HAProxy matrix and were not re-run.
 
-| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openresty-1.31.8.1 | node-http2 | haproxy-3.0 |
-|-------|--------------|-----------|--------------|--------------|-------|-------|-----|---------|--------------------|------------|-------------|
-| `h2_alpn` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| `wu_zero_conn` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS |
-| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | PASS | ANOMALY | ANOMALY |
-| `wu_conn_overflow` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS |
-| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL | ANOMALY | ANOMALY |
-| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL | ANOMALY | FAIL |
-| `cleanup_overcredit` | **FAIL** | — | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openresty-1.31.8.1 | node-http2 | haproxy-3.0 | openlitespeed-1.9.4 |
+|-------|--------------|-----------|--------------|--------------|-------|-------|-----|---------|--------------------|------------|-------------|---------------------|
+| `h2_alpn` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| `wu_zero_conn` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS | PASS |
+| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | PASS | ANOMALY | ANOMALY | ANOMALY |
+| `wu_conn_overflow` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS | PASS |
+| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY |
+| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL | ANOMALY | FAIL | FAIL |
+| `cleanup_overcredit` | **FAIL** | — | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 
 **Reading the matrix**
 
-- `cleanup_overcredit` is the CVE-class discriminator: FAIL on nginx 1.31.8; PASS on patched nginx and every other h2 target, including OpenResty 1.31.8.1 under the same full KeyUpdate pressure (`key_updates=262144`, `carrier=7340032`) and Node.js `http2` and HAProxy 3.0.31 under the soft profile (`key_updates=0`, `carrier=200000`). The OpenResty PASS was repeated. The Node and HAProxy PASSes are one run each. The vulnerable signature was not observed on those three. That is not a new CVE and not a claim that OpenResty 1.31.8.1 contains the nginx fix. A future FAIL on this nginx 1.31.8 line would be inheritance of CVE-2026-123007.
+- `cleanup_overcredit` is the CVE-class discriminator: FAIL on nginx 1.31.8; PASS on patched nginx and every other h2 target, including OpenResty 1.31.8.1 under the same full KeyUpdate pressure (`key_updates=262144`, `carrier=7340032`) and Node.js `http2`, HAProxy 3.0.31, and OpenLiteSpeed 1.9.4 Open under the soft profile (`key_updates=0`, `carrier=200000`). The OpenResty PASS was repeated. The Node, HAProxy, and OpenLiteSpeed PASSes are one run each. The vulnerable signature was not observed on those four. That is not a new CVE and not a claim that OpenResty 1.31.8.1 contains the nginx fix. A future FAIL on this nginx 1.31.8 line would be inheritance of CVE-2026-123007.
 - OpenResty `wu_stream_overflow` and `settings_iw_overflow` FAIL the same way they FAIL on both nginx 1.31.8 and nginx 1.31.9. Those rows are not the CVE discriminator.
 - Node `wu_zero_stream`, `wu_stream_overflow`, and `settings_iw_overflow` are ANOMALY: the connection closed with no GOAWAY. Review items, not CVE claims. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS.
 - HAProxy `wu_zero_stream` and `wu_stream_overflow` are ANOMALY: RST_STREAM on the stream, connection kept. Same review bucket as Caddy. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS. `settings_iw_overflow` scored FAIL because the connection stayed up, answered PING, and sent no RST or GOAWAY. The probe request already carries END_STREAM, and `http-request return file` answers at once with the whole body. That score is a review item. It is not a new CVE. A tiny HTTP sidecar behind HAProxy is the follow-up if that row should be re-checked against a real stream.
-- nginx / Apache cleanup runs under full KeyUpdate pressure. Caddy / Envoy / Go / nghttpd / Node / HAProxy complete under a soft profile (`key_updates=0`, `carrier=200000`); full KeyUpdate pressure hits Broken pipe on the earlier non-nginx stacks. Node and HAProxy were not driven at that pressure. Soft-profile PASS means the accounting signal was not observed under that load — see Scope. HAProxy's PASS also sits on a frontend that ignores Range.
+- OpenLiteSpeed `wu_zero_stream` and `wu_stream_overflow` are ANOMALY: RST_STREAM on the stream, connection kept. Same review bucket as Caddy and HAProxy. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS. `settings_iw_overflow` scored FAIL because the connection stayed up, answered PING, and sent no RST or GOAWAY. The probe request already carries END_STREAM, and WINDOW_UPDATE(MAX-1) gives enough credit to finish the 896-byte body in that flight. That score is a review item. It is not a new CVE.
+- nginx / Apache cleanup runs under full KeyUpdate pressure. Caddy / Envoy / Go / nghttpd / Node / HAProxy / OpenLiteSpeed complete under a soft profile (`key_updates=0`, `carrier=200000`); full KeyUpdate pressure hits Broken pipe on the earlier non-nginx stacks. Node, HAProxy, and OpenLiteSpeed were not driven at that pressure. Soft-profile PASS means the accounting signal was not observed under that load — see Scope. HAProxy's PASS also sits on a frontend that ignores Range. OpenLiteSpeed's static handler does implement Range; the cleanup canary on that run still observed 0 bytes.
 - Other FAIL/ANOMALY rows are RFC-conformance / review items (`evidence/MANUAL-REVIEW-NOTES.txt`). nginx `wu_stream_overflow` / `settings_iw_overflow` FAIL on both vuln and patched builds, so they are not the CVE discriminator; likely probe over-strictness pending an h2spec overflow cross-check.
 
 ---
@@ -143,7 +147,7 @@ Deliberate design:
 
 Current engineering limits:
 
-- Soft-profile cleanup on caddy / envoy / go / nghttpd / node / haproxy is not equivalent to nginx KeyUpdate pressure.
+- Soft-profile cleanup on caddy / envoy / go / nghttpd / node / haproxy / openlitespeed is not equivalent to nginx KeyUpdate pressure.
 - Envoy `direct_response` ignores HTTP Range; window-exhaustion via Range is degraded there.
 - HAProxy `http-request return file` also ignores Range. The cleanup probe still completed. A sidecar backend would be a separate slice.
 - nginx overflow FAILs on both builds need an h2spec overflow cross-check.
@@ -159,14 +163,14 @@ Current engineering limits:
 ./scripts/run-all.sh --skip-heavy    # skip ~45s cleanup_overcredit
 ```
 
-Pipeline: dockerd → pinned targets up → 27 offline unit tests → 7-probe battery → matrix. Exit 0 means the harness succeeded (FAIL/ANOMALY in the matrix are observations). Tear down: `./scripts/lab-down-targets.sh`.
+Pipeline: dockerd → pinned targets up → 28 offline unit tests → 7-probe battery → matrix. Exit 0 means the harness succeeded (FAIL/ANOMALY in the matrix are observations). Tear down: `./scripts/lab-down-targets.sh`.
 
 ```bash
 ./scripts/capture-zero-wu.py
 ./scripts/run-h2spec-zero-wu.sh
 ```
 
-Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with stdlib only. `node-http2` rebuilds from pinned `node:22-alpine` (v22.23.5) with stdlib `http2` only. The Node app is not separately hashed. `haproxy-3.0` is the pinned `haproxy:3.0-alpine` digest (3.0.31 LTS). The lab config is not separately hashed.
+Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with stdlib only. `node-http2` rebuilds from pinned `node:22-alpine` (v22.23.5) with stdlib `http2` only. The Node app is not separately hashed. `haproxy-3.0` is the pinned `haproxy:3.0-alpine` digest (3.0.31 LTS). The lab config is not separately hashed. `openlitespeed-1.9.4` is the pinned `litespeedtech/openlitespeed:1.9.4-lsphp82` digest. OLS is open source, not LSWS Enterprise. The lab entrypoint is not separately hashed.
 
 ---
 
@@ -177,15 +181,16 @@ Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with
 - nginx 1.31.8 breaks the connection-window accounting invariant.
 - nginx 1.31.9 and Apache hold it under full KeyUpdate pressure.
 - Caddy / Envoy / Go / nghttpd: signal not observed under the soft profile; probes completed.
-- Method runs across eleven loopback targets.
+- Method runs across twelve loopback targets.
 - OpenResty 1.31.8.1 completed full-pressure `cleanup_overcredit` without the accounting signal (two runs). Not a new CVE and not a vendor-fix claim.
 - Node.js stdlib `http2` (v22.23.5) completed soft-profile `cleanup_overcredit` without the accounting signal (one run). Not a new CVE.
 - HAProxy 3.0.31 completed soft-profile `cleanup_overcredit` without the accounting signal (one run). Range is ignored by return-file. The `settings_iw_overflow` FAIL on that frontend is a review item, not a new CVE.
+- OpenLiteSpeed 1.9.4 Open completed soft-profile `cleanup_overcredit` without the accounting signal (one run). Static Range works. The `wu_zero_stream` / `wu_stream_overflow` ANOMALYs and the `settings_iw_overflow` FAIL are review items, not a new CVE. This target is open-source OLS, not LSWS Enterprise.
 - Zero-WU false positive identified, corrected, and h2spec-verified.
 
 **Out of scope for this write-up**
 
-- New CVEs on non-nginx targets, including OpenResty, Node, and HAProxy.
+- New CVEs on non-nginx targets, including OpenResty, Node, HAProxy, and OpenLiteSpeed.
 - Reading the OpenResty 1.31.8.1 PASS as proof the nginx fix is present in that build.
 - Equating soft-profile PASS with nginx-pressure immunity.
 - Memory corruption or RCE proofs.
@@ -197,7 +202,7 @@ Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with
 1. Range-capable (or canary-fill) path for Envoy cleanup.
 2. Full KeyUpdate pressure on non-nginx stacks without Broken pipe, or keep soft-profile semantics explicit.
 3. h2spec cross-check of nginx `wu_stream_overflow` / `settings_iw_overflow`.
-4. Additional targets via the same registry. Next expand slice: OpenLiteSpeed (`127.0.0.1:19451`). HAProxy 3.0.31 is wired on `127.0.0.1:19453`. Node stdlib `http2` is wired on `127.0.0.1:19454`. Optional follow-up: HAProxy plus a tiny HTTP sidecar, still loopback-published only through HAProxy, so Range and a real stream lifecycle can be re-checked. Traefik stays rejected for now.
+4. The expand-targets set is wired: OpenResty (`127.0.0.1:19452`), Node stdlib `http2` (`127.0.0.1:19454`), HAProxy 3.0.31 (`127.0.0.1:19453`), and OpenLiteSpeed 1.9.4 Open (`127.0.0.1:19451`). OLS in this lab is open source, not LSWS Enterprise. Optional follow-up: HAProxy plus a tiny HTTP sidecar, still loopback-published only through HAProxy, so Range and a real stream lifecycle can be re-checked. Traefik stays rejected for now.
 5. After the HTTP/2 battery is settled: map the same invariant ideas onto other protocols as a separate standalone slice.
 
 ---
@@ -211,7 +216,7 @@ Official images are digest-pinned; `go-nethttp` rebuilds from pinned golang with
 TARGETS["my-server"] = Target(
     id="my-server",
     name="My HTTP/2 server (lab)",
-    url="https://127.0.0.1:19451/",
+    url="https://127.0.0.1:19455/",
     role="cross-impl",
     image="owner/image@sha256:…",
     supports_h2=True,

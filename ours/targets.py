@@ -44,6 +44,7 @@ class Target:
 
 # Ports: 19443 vuln nginx, 19444 http2-off, 19445 apache, 19446 patched nginx,
 #         19447 caddy, 19448 envoy, 19449 go-nethttp, 19450 nghttpd,
+#         19451 openlitespeed 1.9.4 (open source OLS, not LSWS Enterprise),
 #         19452 openresty (nginx 1.31.8 line),
 #         19453 haproxy 3.0 (return-file, no backend),
 #         19454 node-http2.
@@ -141,6 +142,32 @@ TARGETS: dict[str, Target] = {
         image="debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc",
         supports_h2=True,
         notes="nghttpd from apt on pinned debian; no Range; full KU → Broken pipe",
+        key_updates=0,
+        carrier_app_bytes=200_000,
+        fallback_key_updates=None,
+        fallback_carrier_app_bytes=None,
+    ),
+    "openlitespeed-1.9.4": Target(
+        id="openlitespeed-1.9.4",
+        name="OpenLiteSpeed 1.9.4 Open (not LSWS Enterprise)",
+        url="https://127.0.0.1:19451/",
+        role="cross-impl",
+        image="litespeedtech/openlitespeed@sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50",
+        supports_h2=True,
+        notes=(
+            "Open source OpenLiteSpeed (OLS). Commercial LSWS Enterprise is "
+            "a different product and is not this image. Pinned "
+            "litespeedtech/openlitespeed:1.9.4-lsphp82. lshttpd reports "
+            "LiteSpeed/1.9.4 Open. HTTPS listener on container :443 with "
+            "enableSpdy 8. WebAdmin 7080 is unpublished (disableWebAdmin 1). "
+            "Static index supports Range. Soft profile (key_updates=0, "
+            "carrier=200000). One run: cleanup_overcredit PASS (completed "
+            "NOT_PROVEN; streams 149/151 had no RST; canary 0/10; no "
+            "post-refund PING ACK; alive=False). wu_zero_stream and "
+            "wu_stream_overflow are ANOMALY (stream RST, connection kept). "
+            "settings_iw_overflow scored FAIL with no RST/GOAWAY. Those "
+            "rows are review items. No new CVE is claimed"
+        ),
         key_updates=0,
         carrier_app_bytes=200_000,
         fallback_key_updates=None,

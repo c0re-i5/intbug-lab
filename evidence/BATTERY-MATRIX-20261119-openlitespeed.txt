@@ -1,0 +1,62 @@
+probe                | nginx-1.31.8         | nginx-http2-off      | httpd-2.4.71         | nginx-1.31.9         | caddy-2.10           | envoy-1.32           | go-nethttp           | nghttpd              | openresty-1.31.8.1   | node-http2           | haproxy-3.0          | openlitespeed-1.9.4 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+h2_alpn              | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                
+wu_zero_conn         | PASS                 | -                    | PASS                 | PASS                 | PASS                 | ANOMALY              | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                
+wu_zero_stream       | PASS                 | -                    | PASS                 | PASS                 | ANOMALY              | ANOMALY              | ANOMALY              | PASS                 | PASS                 | ANOMALY              | ANOMALY              | ANOMALY             
+wu_conn_overflow     | PASS                 | -                    | PASS                 | PASS                 | PASS                 | ANOMALY              | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                
+wu_stream_overflow   | FAIL                 | -                    | ANOMALY              | FAIL                 | ANOMALY              | ANOMALY              | ANOMALY              | ANOMALY              | FAIL                 | ANOMALY              | ANOMALY              | ANOMALY             
+settings_iw_overflow | FAIL                 | -                    | ANOMALY              | FAIL                 | PASS                 | ANOMALY              | PASS                 | ANOMALY              | FAIL                 | ANOMALY              | FAIL                 | FAIL                
+cleanup_overcredit   | FAIL                 | -                    | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                 | PASS                
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure
+Notes (2026-11-19 America/Toronto, OpenLiteSpeed 1.9.4 slice):
+- Columns other than openlitespeed-1.9.4 are carried from the prior HAProxy
+  matrix (evidence/BATTERY-MATRIX-20261119-haproxy.txt, which was
+  BATTERY-MATRIX-latest.txt before this slice). They were not re-run.
+- openlitespeed-1.9.4 is from this slice:
+  evidence/BATTERY-openlitespeed-1.9.4-20261119-171550.txt (full 7 probes).
+  Raw one-column matrix: evidence/BATTERY-MATRIX-20261119-171550.txt.
+- Smoke: HTTP/2 200, 896 bytes, https://127.0.0.1:19451/index.html
+  and https://127.0.0.1:19451/. Body matches conf/shared/index.html.
+  Range bytes=0-9 returned HTTP/2 206, 10 bytes. After the battery the
+  same index smoke was still HTTP/2 200, 896 bytes.
+  Publish is 127.0.0.1:19451 → container 443 only. `docker port` shows
+  443/tcp -> 127.0.0.1:19451. Host port 7080 is closed. Inside the
+  container, disableWebAdmin 1 and there is no listener on 7080.
+  The image EXPOSE metadata still lists 7080/tcp with a null host bind.
+- Image: litespeedtech/openlitespeed@sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50
+  (tag :1.9.4-lsphp82). `lshttpd -v` is LiteSpeed/1.9.4 Open
+  (BUILD built: Wed Oct 28 16:03:52 UTC 2026).
+  This process is open-source OpenLiteSpeed. Commercial LSWS Enterprise
+  (image litespeedtech/litespeed) is a different product and was not started.
+  Unpacked image size on this box is about 726 MiB.
+- Entrypoint copies certs/lab.{crt,key}, sets the HTTPS listener to
+  enableSpdy 8 (HTTP/2), sslProtocol 24, enableQuic 0, and points the
+  docker vhost vhssl at the same lab cert. Docroot is the shared index.
+  Inside the container the listener address is *:443 so the published
+  port can reach the process. The host publish is loopback only.
+- cleanup_overcredit used the soft profile (key_updates=0, carrier=200000),
+  same shape as go/caddy/node/haproxy. Result: PASS. The vulnerable
+  signature was not observed (streams 149/151 had no RST, recorded as
+  None rather than FLOW_CONTROL_ERROR 3; canary 0/10; no post-refund
+  PING ACK). alive=False, so the connection did not stay cleanly usable.
+  The probe completed. It is a completed NOT_PROVEN under the soft profile.
+  A separate Range smoke on this listener returned HTTP/2 206, 10 bytes,
+  so OLS static files implement Range. The cleanup canary still observed
+  0 bytes. This PASS does not establish immunity under nginx KeyUpdate
+  pressure. No new CVE is claimed.
+- wu_zero_stream is ANOMALY: RST_STREAM PROTOCOL_ERROR on stream 1
+  (rst=[(1, 1)]), connection kept (alive=True). Same open-stream WU frame
+  as the other targets (00000408000000000100000000). Same review bucket
+  as Caddy, Go, and HAProxy. See evidence/MANUAL-REVIEW-NOTES.txt.
+- wu_stream_overflow is ANOMALY: RST_STREAM FLOW_CONTROL_ERROR on the
+  stream, connection kept. Same review bucket as Apache, Caddy, and HAProxy.
+- settings_iw_overflow scored FAIL: alive=True, goaway_error=None, rst={},
+  and a later PING was answered. The harness reads that as the SETTINGS
+  delta appearing to be accepted. The request in that flight already has
+  END_STREAM, and the preceding WINDOW_UPDATE(MAX-1) is large enough for
+  the 896-byte body, so the static handler can finish the stream in the
+  same flight. That score is not the CVE-2026-123007 discriminator
+  (cleanup_overcredit PASSed). It is a review item. No new CVE is claimed.
+- wu_zero_conn and wu_conn_overflow returned GOAWAY and PASS.
+- No new CVE claims from this slice.

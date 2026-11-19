@@ -20,6 +20,7 @@ class TargetRegistryTests(unittest.TestCase):
             "openresty-1.31.8.1",
             "haproxy-3.0",
             "node-http2",
+            "openlitespeed-1.9.4",
         ):
             self.assertIn(tid, TARGETS)
 

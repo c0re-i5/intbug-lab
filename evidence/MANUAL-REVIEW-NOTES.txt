@@ -185,3 +185,57 @@ HAProxy 3.0 slice (2026-11-19 America/Toronto) — not a new CVE
     probes did reject. Not a CVE claim either way.
 
 No new CVE claims from this slice. Traefik was not added.
+
+----------------------------------------------------------------------
+OpenLiteSpeed 1.9.4 slice (2026-11-19 America/Toronto) — not a new CVE
+----------------------------------------------------------------------
+
+19) openlitespeed-1.9.4 :: cleanup_overcredit = PASS
+    Soft profile (key_updates=0, carrier=200000), one run
+    (evidence/BATTERY-openlitespeed-1.9.4-20261119-171550.txt). Same
+    profile as go/caddy/node/haproxy. The probe completed. It is not
+    INCONCLUSIVE. Vulnerable signature not observed: streams 149/151 had
+    no RST (recorded None, not FLOW_CONTROL_ERROR 3); canary 0/10; no
+    post-refund PING ACK. alive=False. Completed NOT_PROVEN under the
+    soft profile. Not nginx-pressure immunity. Not a new CVE.
+    A separate Range smoke of `Range: bytes=0-9` on
+    https://127.0.0.1:19451/index.html was HTTP/2 206, 10 bytes. OLS
+    static files implement Range. The cleanup canary still observed 0
+    bytes. That is a property of this probe run, not a claim that Range
+    is missing.
+    `lshttpd -v` on the pinned image is LiteSpeed/1.9.4 Open
+    (litespeedtech/openlitespeed@sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50,
+    tag :1.9.4-lsphp82). This is open-source OpenLiteSpeed. Commercial
+    LSWS Enterprise was not started.
+
+20) openlitespeed-1.9.4 :: wu_zero_stream = ANOMALY
+    RST_STREAM PROTOCOL_ERROR on stream 1, connection kept (alive=True,
+    rst=[(1, 1)]). Same open-stream WU frame as the other targets
+    (00000408000000000100000000). Same review bucket as Caddy, Go, and
+    HAProxy. Not a CVE.
+
+21) openlitespeed-1.9.4 :: wu_stream_overflow = ANOMALY
+    RST_STREAM FLOW_CONTROL_ERROR on the stream, connection kept.
+    Same review bucket as Apache, Caddy, and HAProxy. Not a CVE.
+
+22) openlitespeed-1.9.4 :: settings_iw_overflow = FAIL
+    Harness score only. alive=True, goaway_error=None, rst={}, and a later
+    PING was answered, so the probe reports "appeared to be accepted".
+    The request in that flight already has END_STREAM, and the preceding
+    WINDOW_UPDATE(MAX-1) is enough credit for the 896-byte body. The
+    static handler can finish the stream in that same flight. This row
+    is not the CVE-2026-123007 discriminator. cleanup_overcredit on the
+    same listener PASSed. Not a new CVE.
+
+23) openlitespeed-1.9.4 :: wu_zero_conn = PASS
+    openlitespeed-1.9.4 :: wu_conn_overflow = PASS
+    GOAWAY PROTOCOL_ERROR and GOAWAY FLOW_CONTROL_ERROR. Connection-level
+    probes did reject. Not a CVE claim either way.
+
+24) WebAdmin
+    Host port 7080 was closed. Compose and lab-up publish only
+    127.0.0.1:19451 → container 443. The entrypoint sets disableWebAdmin 1.
+    The image EXPOSE metadata still lists 7080/tcp; Docker's host bind for
+    that port is null.
+
+No new CVE claims from this slice. LSWS Enterprise was not added.

@@ -54,6 +54,7 @@ run_one caddy-2.10 19447
 run_one envoy-1.32 19448
 run_one go-nethttp 19449
 run_one nghttpd 19450
+run_one openlitespeed-1.9.4 19451
 run_one openresty-1.31.8.1 19452
 run_one haproxy-3.0 19453
 run_one node-http2 19454

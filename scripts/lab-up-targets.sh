@@ -24,6 +24,9 @@ OPENRESTY='openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787f
 NODE='node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a'
 # haproxy:3.0-alpine → 3.0.31 LTS. Single container, return-file body.
 HAPROXY='haproxy@sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee'
+# OpenLiteSpeed 1.9.4 Open (tag :1.9.4-lsphp82). Not LSWS Enterprise.
+# WebAdmin 7080 is not published.
+OPENLITESPEED='litespeedtech/openlitespeed@sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50'
 
 ensure_certs() {
   if [[ ! -f certs/lab.crt || ! -f certs/lab.key ]]; then
@@ -155,6 +158,20 @@ docker run -d --name integer-lab-node --platform linux/amd64 \
   integer-lab-node:pinned
 echo "started integer-lab-node on 127.0.0.1:19454"
 
+# --- OpenLiteSpeed 1.9.4 Open (not LSWS Enterprise) ---
+# Host publish is 127.0.0.1:19451 → container 443 only. No 7080 publish.
+# Entrypoint installs the lab cert, sets disableWebAdmin 1, enableSpdy 8.
+docker pull --platform linux/amd64 "$OPENLITESPEED" >/dev/null
+docker rm -f integer-lab-openlitespeed >/dev/null 2>&1 || true
+docker run -d --name integer-lab-openlitespeed --platform linux/amd64 \
+  -p 127.0.0.1:19451:443 \
+  --mount type=bind,src="${ROOT}/conf/openlitespeed",dst=/ols-lab,readonly \
+  --mount type=bind,src="${ROOT}/conf/shared/index.html",dst=/var/www/vhosts/localhost/html/index.html,readonly \
+  --mount type=bind,src="${ROOT}/certs/lab.crt",dst=/certs/lab.crt,readonly \
+  --mount type=bind,src="${ROOT}/certs/lab.key",dst=/certs/lab.key,readonly \
+  --entrypoint sh "$OPENLITESPEED" /ols-lab/entrypoint.sh
+echo "started integer-lab-openlitespeed on 127.0.0.1:19451"
+
 sleep 3
 echo
 echo "=== smoke ==="
@@ -167,6 +184,7 @@ for url in \
   https://127.0.0.1:19448/index.html \
   https://127.0.0.1:19449/index.html \
   https://127.0.0.1:19450/index.html \
+  https://127.0.0.1:19451/index.html \
   https://127.0.0.1:19452/index.html \
   https://127.0.0.1:19453/index.html \
   https://127.0.0.1:19454/index.html

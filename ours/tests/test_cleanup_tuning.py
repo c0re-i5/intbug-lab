@@ -15,6 +15,9 @@ _NODE_DIGEST = (
 _HAPROXY_DIGEST = (
     "sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee"
 )
+_OLS_DIGEST = (
+    "sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50"
+)
 
 
 class StatusTests(unittest.TestCase):
@@ -101,6 +104,34 @@ class CleanupTuningTests(unittest.TestCase):
         self.assertIn("127.0.0.1:19453:443", up)
         self.assertNotIn("0.0.0.0:19453", up)
 
+    def test_openlitespeed_soft_profile_digest_lockstep(self):
+        t = get_target("openlitespeed-1.9.4")
+        self.assertEqual(t.role, "cross-impl")
+        self.assertTrue(t.supports_h2)
+        self.assertEqual(t.url, "https://127.0.0.1:19451/")
+        self.assertEqual(t.key_updates, 0)
+        self.assertEqual(t.carrier_app_bytes, 200_000)
+        self.assertIsNone(t.fallback_key_updates)
+        self.assertIsNone(t.fallback_carrier_app_bytes)
+        self.assertIn(_OLS_DIGEST, t.image)
+        self.assertIn("LSWS Enterprise", t.notes)
+        for rel in (
+            "ours/targets.py",
+            "docker-compose.yml",
+            "scripts/lab-up-targets.sh",
+        ):
+            blob = (_REPO / rel).read_text()
+            self.assertEqual(blob.count(_OLS_DIGEST), 1, rel)
+        compose = (_REPO / "docker-compose.yml").read_text()
+        self.assertIn("127.0.0.1:19451:443", compose)
+        self.assertNotIn("0.0.0.0:19451", compose)
+        self.assertNotIn("7080:7080", compose)
+        self.assertNotIn("127.0.0.1:7080", compose)
+        up = (_REPO / "scripts/lab-up-targets.sh").read_text()
+        self.assertIn("127.0.0.1:19451:443", up)
+        self.assertNotIn("0.0.0.0:19451", up)
+        self.assertNotIn("7080:7080", up)
+
     def test_soft_stacks_use_ku0(self):
         for tid in (
             "caddy-2.10",
@@ -109,6 +140,7 @@ class CleanupTuningTests(unittest.TestCase):
             "nghttpd",
             "node-http2",
             "haproxy-3.0",
+            "openlitespeed-1.9.4",
         ):
             t = get_target(tid)
             self.assertEqual(t.key_updates, 0, tid)

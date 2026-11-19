@@ -107,6 +107,27 @@ services:
       - ./certs/lab.key:/certs/lab.key:ro
     entrypoint: ["sh", "/entrypoint-lab.sh"]
 
+  # OpenLiteSpeed 1.9.4 Open — open source OLS, not commercial LSWS
+  # Enterprise (litespeedtech/litespeed needs a license; do not use it).
+  # Publish only 127.0.0.1:19451 → container 443. Do not publish WebAdmin
+  # 7080. The image EXPOSE metadata still lists 7080; the entrypoint sets
+  # disableWebAdmin 1 and this service has no 7080 host bind.
+  # Entrypoint patches the HTTPS listener (lab cert, enableSpdy 8) and the
+  # docker vhost vhssl, then starts OLS. Docroot is the shared index.html.
+  # Image is the lsphp build (unpacked about 726 MiB here).
+  # Digest must match ours/targets.py and scripts/lab-up-targets.sh.
+  openlitespeed-194:
+    image: litespeedtech/openlitespeed@sha256:48bc2719f24c4a451f13c379f499e9822f00aeae9ed248fea6d934d4a4231d50
+    platform: linux/amd64
+    container_name: integer-lab-openlitespeed
+    ports: ["127.0.0.1:19451:443"]
+    volumes:
+      - ./conf/openlitespeed/:/ols-lab:ro
+      - ./conf/shared/index.html:/var/www/vhosts/localhost/html/index.html:ro
+      - ./certs/lab.crt:/certs/lab.crt:ro
+      - ./certs/lab.key:/certs/lab.key:ro
+    entrypoint: ["sh", "/ols-lab/entrypoint.sh"]
+
   # node-http2 is built locally from
   # node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
   # (tag :22-alpine → v22.23.5). Image tag after build: integer-lab-node:pinned.

@@ -97,20 +97,21 @@ On the vulnerable build the oracle records RST `FLOW_CONTROL_ERROR` on the queue
 
 ## Results
 
-From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The OpenLiteSpeed column is this slice; the other columns are the prior HAProxy matrix and were not re-run.
+One full `./scripts/run-all.sh` on `main` (not `--skip-heavy`), 2026-11-19 America/Toronto, about 4 min 54 s: 12 targets up and smoked (all HTTP/2 200 except the `http2`-off negative control, which answers HTTP/1.1), 28 unit tests OK, harness exit 0, no `ERROR` cells. Every column below is from that one run (`evidence/BATTERY-MATRIX-20261119-173219.txt`; `BATTERY-MATRIX-latest.txt` is a copy). `—` = probe not applicable (HTTP/2 off).
 
-| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openresty-1.31.8.1 | node-http2 | haproxy-3.0 | openlitespeed-1.9.4 |
-|-------|--------------|-----------|--------------|--------------|-------|-------|-----|---------|--------------------|------------|-------------|---------------------|
+| probe | nginx-1.31.8 | http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy | envoy | go | nghttpd | openlitespeed-1.9.4 | openresty-1.31.8.1 | node-http2 | haproxy-3.0 |
+|-------|--------------|-----------|--------------|--------------|-------|-------|----|---------|---------------------|--------------------|------------|-------------|
 | `h2_alpn` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | `wu_zero_conn` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS | PASS |
-| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | PASS | ANOMALY | ANOMALY | ANOMALY |
+| `wu_zero_stream` | PASS | — | PASS | PASS | ANOMALY | ANOMALY | ANOMALY | PASS | ANOMALY | PASS | ANOMALY | ANOMALY |
 | `wu_conn_overflow` | PASS | — | PASS | PASS | PASS | ANOMALY | PASS | PASS | PASS | PASS | PASS | PASS |
-| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY |
-| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL | ANOMALY | FAIL | FAIL |
+| `wu_stream_overflow` | FAIL | — | ANOMALY | FAIL | ANOMALY | ANOMALY | ANOMALY | ANOMALY | ANOMALY | FAIL | ANOMALY | ANOMALY |
+| `settings_iw_overflow` | FAIL | — | ANOMALY | FAIL | PASS | ANOMALY | PASS | ANOMALY | FAIL | FAIL | ANOMALY | FAIL |
 | `cleanup_overcredit` | **FAIL** | — | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 
 **Reading the matrix**
 
+- **Headline:** `cleanup_overcredit` FAILs on nginx 1.31.8 only and PASSes on the 10 other HTTP/2 stacks. `nginx-http2-off` is the negative control: same image as 1.31.8 with `http2` disabled, so the HTTP/2 probes are not applicable.
 - `cleanup_overcredit` is the CVE-class discriminator: FAIL on nginx 1.31.8; PASS on patched nginx and every other h2 target, including OpenResty 1.31.8.1 under the same full KeyUpdate pressure (`key_updates=262144`, `carrier=7340032`) and Node.js `http2`, HAProxy 3.0.31, and OpenLiteSpeed 1.9.4 Open under the soft profile (`key_updates=0`, `carrier=200000`). The OpenResty PASS was repeated. The Node, HAProxy, and OpenLiteSpeed PASSes are one run each. The vulnerable signature was not observed on those four. That is not a new CVE and not a claim that OpenResty 1.31.8.1 contains the nginx fix. A future FAIL on this nginx 1.31.8 line would be inheritance of CVE-2026-123007.
 - OpenResty `wu_stream_overflow` and `settings_iw_overflow` FAIL the same way they FAIL on both nginx 1.31.8 and nginx 1.31.9. Those rows are not the CVE discriminator.
 - Node `wu_zero_stream`, `wu_stream_overflow`, and `settings_iw_overflow` are ANOMALY: the connection closed with no GOAWAY. Review items, not CVE claims. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS.
@@ -118,6 +119,20 @@ From `evidence/BATTERY-MATRIX-latest.txt` (2026-11-19 America/Toronto). The Open
 - OpenLiteSpeed `wu_zero_stream` and `wu_stream_overflow` are ANOMALY: RST_STREAM on the stream, connection kept. Same review bucket as Caddy and HAProxy. `wu_zero_conn` and `wu_conn_overflow` returned GOAWAY and PASS. `settings_iw_overflow` scored FAIL because the connection stayed up, answered PING, and sent no RST or GOAWAY. The probe request already carries END_STREAM, and WINDOW_UPDATE(MAX-1) gives enough credit to finish the 896-byte body in that flight. That score is a review item. It is not a new CVE.
 - nginx / Apache cleanup runs under full KeyUpdate pressure. Caddy / Envoy / Go / nghttpd / Node / HAProxy / OpenLiteSpeed complete under a soft profile (`key_updates=0`, `carrier=200000`); full KeyUpdate pressure hits Broken pipe on the earlier non-nginx stacks. Node, HAProxy, and OpenLiteSpeed were not driven at that pressure. Soft-profile PASS means the accounting signal was not observed under that load — see Scope. HAProxy's PASS also sits on a frontend that ignores Range. OpenLiteSpeed's static handler does implement Range; the cleanup canary on that run still observed 0 bytes.
 - Other FAIL/ANOMALY rows are RFC-conformance / review items (`evidence/MANUAL-REVIEW-NOTES.txt`). nginx `wu_stream_overflow` / `settings_iw_overflow` FAIL on both vuln and patched builds, so they are not the CVE discriminator; likely probe over-strictness pending an h2spec overflow cross-check.
+
+---
+
+## ANOMALY / FAIL triage
+
+Every ANOMALY cell, every `settings_iw_overflow` FAIL, and the nginx-family overflow FAILs (26 cells in all) were reviewed by hand against per-target transcripts, framing captures and h2spec where available. The classifier is mechanical, so the hand review is the part that decides whether a cell deserves attention. Full table and mechanics: `evidence/ANOMALY-TRIAGE.md`. These verdicts are my judgment, not proof.
+
+| Verdict | Cells | What it covers |
+|---------|-------|----------------|
+| **IGNORE** | 13 | The server rejects the illegal frame with a stream-scoped `RST_STREAM` and keeps the connection (Caddy, Go, HAProxy, OpenLiteSpeed, httpd, nghttpd, Envoy `settings_iw_overflow`). RFC 9113 §6.9 prefers a connection error (`GOAWAY`), but h2spec still passes and nothing is accepted. A strictness gap. |
+| **WATCH** | 9 | Hard close with no `GOAWAY` (Envoy, Node), where the rejection is real but opaque; plus HAProxy and OpenLiteSpeed `settings_iw_overflow` FAILs that look like probe early-completion (the request carries `END_STREAM` and the 896-byte body fits in the granted credit, so the stream finishes before an overflow is forced). Kept on the matrix with optional follow-ups. |
+| **DIG** | 4 | `wu_stream_overflow` and `settings_iw_overflow` FAIL on nginx 1.31.8, nginx 1.31.9 and OpenResty. They also fire on the patched build, so they are not the CVE-2026-123007 discriminator. Worth one conformance write-up (h2spec §6.9.1 / §6.9.2 and a framing capture of the MAX→MAX+1 flight) documenting whether nginx clamps, ignores or accepts the overflow. Not a CVE claim. |
+
+Only a `cleanup_overcredit` FAIL on a stack that is not the already-known nginx line would justify escalation. None occurred.
 
 ---
 
@@ -132,7 +147,7 @@ The corrected probe opens the stream with HEADERS `END_HEADERS` only (no `END_ST
 |len=4|type=WINDOW_UPDATE|flags=0|stream=1|increment=0|
 ```
 
-Result: nginx, Apache, and nghttpd reject with GOAWAY `PROTOCOL_ERROR` (PASS). Caddy and Go reject via RST_STREAM; Envoy hard-closes — rejection-style differences, scored ANOMALY. **h2spec v2.6.0** (`http2/6.9/1` + `http2/6.9/2`) passed 2/2 on all seven h2 targets. The earlier shared-FAIL claim was dropped. Evidence: `evidence/zero-wu/`.
+Result: nginx, Apache, and nghttpd reject with GOAWAY `PROTOCOL_ERROR` (PASS). Caddy and Go reject via RST_STREAM; Envoy hard-closes — rejection-style differences, scored ANOMALY. **h2spec v2.6.0** (`http2/6.9/1` + `http2/6.9/2`) passed 2/2 on all seven h2 targets then in the lab. The earlier shared-FAIL claim was dropped. Evidence: `evidence/zero-wu/`.
 
 ---
 
@@ -145,14 +160,18 @@ Deliberate design:
 - **Coordinated-disclosure intent.** Method + lab, not an Internet scanner.
 - **No new CVE** is claimed from this battery.
 
-Current engineering limits:
+Current engineering limits (read before quoting a PASS):
 
-- Soft-profile cleanup on caddy / envoy / go / nghttpd / node / haproxy / openlitespeed is not equivalent to nginx KeyUpdate pressure.
+- **KeyUpdate pressure is split.** nginx 1.31.8, nginx 1.31.9, OpenResty and Apache httpd run `cleanup_overcredit` at full pressure (`key_updates=262144`, `carrier=7340032`). Caddy, Envoy, Go, nghttpd, Node, HAProxy and OpenLiteSpeed run the soft profile (`key_updates=0`, `carrier=200000`): full pressure hits Broken pipe on the earlier non-nginx stacks, and Node, HAProxy and OpenLiteSpeed were not driven at it. Soft-profile PASSes are weaker evidence.
+- **PASS is not immunity.** PASS means the accounting signal was not observed under that profile and probe. Each non-nginx PASS is a single run; only OpenResty's cleanup PASS was repeated before this full run.
+- **HAProxy has no Range.** `http-request return file` ignores Range, so the fill/canary path is degraded. The probe completed, but it is not a like-for-like test of the nginx window math, and HAProxy in front of a real backend is a different system. A sidecar backend would be a separate slice.
+- **OpenLiteSpeed here is OLS 1.9.4 Open, not LSWS Enterprise.** Enterprise is a different product and is not covered.
+- **Cloudflare, Fastly and Akamai are out of scope.** Closed edge networks cannot be tested on loopback, and this lab does no internet scanning.
+- **OpenResty is not independent of nginx.** It tracks the nginx 1.31.8 line. A cleanup FAIL there would be inheritance of CVE-2026-123007; a PASS is not a claim that the build contains the fix.
+- **Static 896-byte body.** `settings_iw_overflow` on static or `return` frontends can score FAIL through early completion rather than an accepted overflow (HAProxy, OpenLiteSpeed).
 - Envoy `direct_response` ignores HTTP Range; window-exhaustion via Range is degraded there.
-- HAProxy `http-request return file` also ignores Range. The cleanup probe still completed. A sidecar backend would be a separate slice.
-- nginx overflow FAILs on both builds need an h2spec overflow cross-check.
+- nginx overflow FAILs on both builds still need the h2spec overflow cross-check.
 - `nghttpd` apt package version floats on a pinned debian base (reference baseline).
-- OpenResty 1.31.8.1 tracks the nginx 1.31.8 line. A cleanup FAIL there is inheritance of CVE-2026-123007, not a separate finding.
 
 ---
 

@@ -1,0 +1,58 @@
+# httpd-2.4.71 — Apache httpd 2.4.71 + mod_http2
+url: https://127.0.0.1:19445/
+
+## h2_alpn — PASS
+title: ALPN negotiates h2
+rfc:   RFC 9113 §3.3 / RFC 7301
+detail: ALPN h2 negotiated
+
+## wu_zero_conn — PASS
+title: WINDOW_UPDATE increment 0 (connection) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+  evidence: new_frames=1
+
+## wu_zero_stream — PASS
+title: WINDOW_UPDATE increment 0 (stream) rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY PROTOCOL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=1
+  evidence: rst=[]
+  evidence: opened_without_end_stream=1
+  evidence: wu_frame_hex=00000408000000000100000000
+
+## wu_conn_overflow — PASS
+title: connection WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: GOAWAY FLOW_CONTROL_ERROR
+  evidence: alive=False
+  evidence: goaway_error=3
+
+## wu_stream_overflow — ANOMALY
+title: stream WINDOW_UPDATE that exceeds MAX rejected
+rfc:   RFC 9113 §6.9.1
+detail: RST_STREAM FLOW_CONTROL_ERROR on stream; RFC wants connection error — needs manual review, not claimed as a CVE
+  evidence: alive=True
+  evidence: goaway_error=None
+  evidence: rst_stream_fc=1
+
+## settings_iw_overflow — ANOMALY
+title: SETTINGS_INITIAL_WINDOW_SIZE overflow handling
+rfc:   RFC 9113 §6.9.2
+detail: stream RST FLOW_CONTROL_ERROR, connection kept — RFC wants connection error; NOT claimed as a vulnerability by itself
+  evidence: alive=True
+  evidence: goaway_error=None
+  evidence: rst={1: 3}
+
+## cleanup_overcredit — PASS
+title: queued-DATA cleanup must not push connection window above MAX
+rfc:   RFC 9113 §6.9 / CWE-191 class (nginx CVE-2026-123007 accounting)
+detail: accounting over-credit signal NOT proven (completed under primary key_updates=262144, carrier=7340032)
+  evidence: profile=primary key_updates=262144 carrier=7340032
+  evidence: queued_data_refund_resets=FAIL: expected RST FLOW_CONTROL_ERROR on [149, 151]; got {149: None, 151: None}
+  evidence: public_byte_release=FAIL: canary 0 bytes vs expected 10
+  evidence: underflowed_wu_guard=FAIL: no matching PING ACK after suspected over-credit WINDOW_UPDATE
+  evidence: connection_still_usable=FAIL: connection did not remain cleanly usable

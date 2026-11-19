@@ -95,3 +95,23 @@ CONFIRMED bug-class signal (lab-validated against public PoC)
       (completed under ku=0/small-carrier; signal not observed)
 
 No new CVE claims from this slice.
+
+----------------------------------------------------------------------
+OpenResty slice (2026-11-19 America/Toronto) — not a new CVE
+----------------------------------------------------------------------
+
+10) openresty-1.31.8.1 :: cleanup_overcredit = PASS
+    Full KeyUpdate pressure (key_updates=262144, carrier=7340032), two runs
+    (evidence/BATTERY-openresty-1.31.8.1-20261119-164827.txt and
+    ...-164916.txt). Vulnerable signature not observed: no RST
+    FLOW_CONTROL_ERROR on the queued streams, canary 0/10, no post-refund
+    PING ACK. Same NOT_PROVEN shape as nginx-1.31.9's PASS transcript.
+    `openresty -v` on the pinned alpine digest reports openresty/1.31.8.1
+    (nginx 1.31.8 line). This PASS is not a claim that OpenResty backported
+    the CVE-2026-123007 fix. A later FAIL on this family would be inheritance
+    of that CVE, not a new one.
+
+11) openresty-1.31.8.1 :: wu_stream_overflow = FAIL
+    openresty-1.31.8.1 :: settings_iw_overflow = FAIL
+    Same rows already FAIL on both nginx 1.31.8 and nginx 1.31.9, so they
+    are not the CVE-2026-123007 discriminator. Not a new finding.

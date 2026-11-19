@@ -18,6 +18,8 @@ CADDY='caddy@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da18
 ENVOY='envoyproxy/envoy@sha256:6bf0d37dd5e8eac4b37effe89a1aec4760f7f2ce860d1fd6af22147eb87a5058'
 GOLANG='golang@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac'
 DEBIAN='debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc'
+# openresty/1.31.8.1 alpine — still the nginx 1.31.8 line.
+OPENRESTY='openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a'
 
 ensure_certs() {
   if [[ ! -f certs/lab.crt || ! -f certs/lab.key ]]; then
@@ -106,6 +108,23 @@ docker run -d --name integer-lab-nghttpd --platform linux/amd64 \
   -p 127.0.0.1:19450:443 integer-lab-nghttpd:pinned
 echo "started integer-lab-nghttpd on 127.0.0.1:19450"
 
+# --- OpenResty (nginx 1.31.8 line; openssl self-signed, like nginx-1318) ---
+docker pull --platform linux/amd64 "$OPENRESTY" >/dev/null
+docker rm -f integer-lab-openresty >/dev/null 2>&1 || true
+docker run -d --name integer-lab-openresty --platform linux/amd64 \
+  -p 127.0.0.1:19452:443 \
+  --mount type=bind,src="${ROOT}/conf/openresty/nginx.conf",dst=/usr/local/openresty/nginx/conf/nginx.conf,readonly \
+  --mount type=bind,src="${ROOT}/conf/shared/index.html",dst=/usr/local/openresty/nginx/html/index.html,readonly \
+  --entrypoint sh "$OPENRESTY" -c '
+    # openresty alpine has no openssl CLI; cert only, server stays pinned.
+    apk add --no-cache openssl >/dev/null &&
+    openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
+      -keyout /tmp/lab-h2.key -out /tmp/lab-h2.crt \
+      -subj /CN=localhost \
+      -addext subjectAltName=DNS:localhost,IP:127.0.0.1 &&
+    exec openresty -g "daemon off;"'
+echo "started integer-lab-openresty on 127.0.0.1:19452"
+
 sleep 3
 echo
 echo "=== smoke ==="
@@ -117,7 +136,8 @@ for url in \
   https://127.0.0.1:19447/index.html \
   https://127.0.0.1:19448/index.html \
   https://127.0.0.1:19449/index.html \
-  https://127.0.0.1:19450/index.html
+  https://127.0.0.1:19450/index.html \
+  https://127.0.0.1:19452/index.html
 do
   code=$(curl -skS --http2 -o /dev/null -w '%{http_code}/%{http_version}/%{size_download}' "$url" 2>/dev/null || echo fail)
   echo "smoke $url -> $code"

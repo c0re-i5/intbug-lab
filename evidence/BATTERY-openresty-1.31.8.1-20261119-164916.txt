@@ -1,0 +1,12 @@
+# openresty-1.31.8.1 — OpenResty 1.31.8.1 (nginx 1.31.8 line)
+url: https://127.0.0.1:19452/
+
+## cleanup_overcredit — PASS
+title: queued-DATA cleanup must not push connection window above MAX
+rfc:   RFC 9113 §6.9 / CWE-191 class (nginx CVE-2026-123007 accounting)
+detail: accounting over-credit signal NOT proven (completed under primary key_updates=262144, carrier=7340032)
+  evidence: profile=primary key_updates=262144 carrier=7340032
+  evidence: queued_data_refund_resets=FAIL: expected RST FLOW_CONTROL_ERROR on [149, 151]; got {149: None, 151: None}
+  evidence: public_byte_release=FAIL: canary 0 bytes vs expected 10
+  evidence: underflowed_wu_guard=FAIL: no matching PING ACK after suspected over-credit WINDOW_UPDATE
+  evidence: connection_still_usable=FAIL: connection did not remain cleanly usable

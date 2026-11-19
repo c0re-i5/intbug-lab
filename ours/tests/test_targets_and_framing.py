@@ -17,6 +17,7 @@ class TargetRegistryTests(unittest.TestCase):
             "envoy-1.32",
             "go-nethttp",
             "nghttpd",
+            "openresty-1.31.8.1",
         ):
             self.assertIn(tid, TARGETS)
 
@@ -26,7 +27,7 @@ class TargetRegistryTests(unittest.TestCase):
             host, port, _path = _assert_loopback(t.url)
             self.assertEqual(host, "127.0.0.1")
             self.assertGreaterEqual(port, 19443)
-            self.assertLessEqual(port, 19450)
+            self.assertLessEqual(port, 19452)
 
     def test_http2_off_does_not_claim_h2(self):
         self.assertFalse(get_target("nginx-http2-off").supports_h2)

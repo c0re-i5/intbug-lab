@@ -5,10 +5,10 @@ counter / length integer-bug class (CWE-191), validated against nginx
 CVE-2026-123007.
 
 **Validated result:** the `cleanup_overcredit` probe **FAIL**s on nginx 1.31.8
-(known-vulnerable) and **PASS**es on nginx 1.31.9 (patched) and on Apache,
-Caddy, Envoy, Go `net/http`, and nghttpd — matching arkrwn's public `--safe`
-PoC on the same listeners. Eight real HTTP/2 stacks; seven RFC 9113 probes;
-one-command run.
+(known-vulnerable) and **PASS**es on nginx 1.31.9 (patched), on Apache,
+Caddy, Envoy, Go `net/http`, nghttpd, and on OpenResty 1.31.8.1. The nginx
+pair matches arkrwn's public `--safe` PoC on the same listeners. Nine loopback
+HTTP/2 stacks; seven RFC 9113 probes; one-command run.
 
 Longer write-up: **[WRITEUP.md](WRITEUP.md)**.
 
@@ -80,12 +80,17 @@ Tear down: `make down` (or `./scripts/lab-down-targets.sh`).
 | `envoy-1.32` | cross-impl (Envoy) | `127.0.0.1:19448` | `envoyproxy/envoy@sha256:6bf0d37dd5e8eac4b37effe89a1aec4760f7f2ce860d1fd6af22147eb87a5058` |
 | `go-nethttp` | cross-impl (Go `net/http` stdlib) | `127.0.0.1:19449` | built from `golang@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac` |
 | `nghttpd` | reference (nghttp2) | `127.0.0.1:19450` | built from `debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc` (+ apt `nghttp2-server`, not itself digest-pinned) |
+| `openresty-1.31.8.1` | nginx-family (OpenResty on the nginx 1.31.8 line) | `127.0.0.1:19452` | `openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a` |
 
 All publishes are **127.0.0.1 only**. Bodies are 896-byte `/index.html` (Range-capable).
 
+OpenResty **1.31.8.1** (`:alpine` digest above) is still the nginx **1.31.8** line. It is registered as `nginx-family` and driven with the same full KeyUpdate pressure as `nginx-1.31.8` (no soft-profile fallback). A `cleanup_overcredit` **FAIL** on this target is inheritance of the known nginx bug class ([CVE-2026-123007](https://www.rapid7.com/blog/post/ve-cve-2026-123007-critical-nginx-http-2-integer-underflow-leads-to-rce-fixed/)), not a new CVE. Re-pin when OpenResty publishes a 1.31.9+ or backported image. Do not use the `:latest` tag.
+
+The alpine image does not ship an `openssl` CLI. The entrypoint runs `apk add --no-cache openssl` and then the same self-signed cert command as the nginx targets. That package is only the lab certificate; the server under test remains the pinned OpenResty digest.
+
 ### Reproducibility limits (honest)
 
-- Official images (nginx / httpd / caddy / envoy / golang / debian) are **digest-pinned**.
+- Official images (nginx / httpd / caddy / envoy / golang / debian / openresty) are **digest-pinned**. The OpenResty digest must match `ours/targets.py`, `docker-compose.yml`, and `scripts/lab-up-targets.sh`.
 - `go-nethttp` is rebuilt from the pinned golang digest with **stdlib only** (no module fetch).
 - `nghttpd` installs `nghttp2-server` via apt on a pinned debian base — the apt package
   version floats with the distro snapshot. Treat it as a *reference baseline*, not a
@@ -114,22 +119,31 @@ Heavy probe `cleanup_overcredit` ≈ 14 MiB / ~45s per target. Skip with
 
 ## Results matrix (this box, 2026-11-19 America/Toronto)
 
-From `evidence/BATTERY-MATRIX-latest.txt` (graceful cleanup + open-stream wu_zero fix):
+From `evidence/BATTERY-MATRIX-latest.txt`. The OpenResty column is this slice
+(full battery, then a second `cleanup_overcredit` run). The other columns are
+the prior graceful matrix and were not re-run.
 
 ```
-probe                | nginx-1.31.8    | nginx-http2-off | httpd-2.4.71    | nginx-1.31.9    | caddy-2.10      | envoy-1.32      | go-nethttp      | nghttpd
-h2_alpn              | PASS            | PASS            | PASS            | PASS            | PASS            | PASS            | PASS            | PASS
-wu_zero_conn         | PASS            | -               | PASS            | PASS            | PASS            | ANOMALY         | PASS            | PASS
-wu_zero_stream       | PASS            | -               | PASS            | PASS            | ANOMALY         | ANOMALY         | ANOMALY         | PASS
-wu_conn_overflow     | PASS            | -               | PASS            | PASS            | PASS            | ANOMALY         | PASS            | PASS
-wu_stream_overflow   | FAIL            | -               | ANOMALY         | FAIL            | ANOMALY         | ANOMALY         | ANOMALY         | ANOMALY
-settings_iw_overflow | FAIL            | -               | ANOMALY         | FAIL            | PASS            | ANOMALY         | PASS            | ANOMALY
-cleanup_overcredit   | FAIL            | -               | PASS            | PASS            | PASS            | PASS            | PASS            | PASS
+probe                | nginx-1.31.8 | nginx-http2-off | httpd-2.4.71 | nginx-1.31.9 | caddy-2.10 | envoy-1.32 | go-nethttp | nghttpd | openresty-1.31.8.1
+h2_alpn              | PASS         | PASS            | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS
+wu_zero_conn         | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS
+wu_zero_stream       | PASS         | -               | PASS         | PASS         | ANOMALY    | ANOMALY    | ANOMALY    | PASS    | PASS
+wu_conn_overflow     | PASS         | -               | PASS         | PASS         | PASS       | ANOMALY    | PASS       | PASS    | PASS
+wu_stream_overflow   | FAIL         | -               | ANOMALY      | FAIL         | ANOMALY    | ANOMALY    | ANOMALY    | ANOMALY | FAIL
+settings_iw_overflow | FAIL         | -               | ANOMALY      | FAIL         | PASS       | ANOMALY    | PASS       | ANOMALY | FAIL
+cleanup_overcredit   | FAIL         | -               | PASS         | PASS         | PASS       | PASS       | PASS       | PASS    | PASS
 ```
 
-`cleanup_overcredit` now **completes** on all 8 h2 targets (no Broken-pipe soft-PASS).
+`cleanup_overcredit` **completes** on all 9 h2 targets (no Broken-pipe soft-PASS).
 caddy/envoy/go/nghttpd use `key_updates=0` / `carrier=200000` (full KeyUpdate pressure
-hits Broken pipe on those stacks). See `evidence/MANUAL-REVIEW-NOTES.txt`.
+hits Broken pipe on those stacks). OpenResty uses the nginx full-pressure profile
+(`key_updates=262144`, `carrier=7340032`). On this pin the accounting signal was
+not observed (PASS, twice). That is the same NOT_PROVEN shape as nginx 1.31.9's
+PASS transcript. It is not a new CVE, and it is not a claim that OpenResty
+1.31.8.1 has shipped the nginx fix. `wu_stream_overflow` and
+`settings_iw_overflow` FAIL on OpenResty the same way they FAIL on both nginx
+1.31.8 and 1.31.9, so they are not the CVE discriminator. See
+`evidence/MANUAL-REVIEW-NOTES.txt`.
 
 `wu_zero_stream` prior FAILs on Apache/Envoy/nghttpd were a **probe artifact**
 (WU after END_STREAM). Open-stream (h2spec-aligned) probe + byte capture +
@@ -140,6 +154,11 @@ h2spec http2/6.9/1+2 cross-check transcripts are under `evidence/zero-wu/` (opti
 - **`cleanup_overcredit` is the only genuine CVE-class discriminator so far.**
   It FAILs on nginx 1.31.8 and PASSes on patched nginx 1.31.9 and on Apache
   under the full KeyUpdate pressure profile. Matches public arkrwn `--safe`.
+  OpenResty 1.31.8.1 also PASSed under that same full-pressure profile. The
+  vulnerable signature was not observed. That PASS is not a new CVE and not
+  a claim that this OpenResty build contains the nginx fix. A future FAIL on
+  the nginx 1.31.8 line, including OpenResty, is inheritance of
+  CVE-2026-123007.
   Do **not** treat other FAIL/ANOMALY rows as CVEs.
 - **PASS on cleanup ≠ "confirmed clean under nginx pressure"** for
   caddy/envoy/go/nghttpd — those complete under a soft profile (`key_updates=0`).
@@ -181,7 +200,7 @@ intbug-lab/
   docker-compose.yml
   conf/
     nginx.conf / nginx-http2-off.conf
-    apache/  caddy/  envoy/  go/  nghttpd/  shared/
+    apache/  caddy/  envoy/  go/  nghttpd/  openresty/  shared/
   ours/
     framing.py             # raw HTTP/2 encoder (adversarial WUs allowed)
     driver.py              # cleanup-overcredit counter-driver
@@ -220,13 +239,17 @@ intbug-lab/
 - nginx 1.31.9 and Apache httpd 2.4.71 hold it under full KeyUpdate pressure.
 - caddy / envoy / go / nghttpd: accounting signal **not observed** under the soft
   profile (`key_updates=0`, `carrier=200000`); probe **completed** (not a soft-PASS).
-- The battery runs across 8 real HTTP/2 stacks so the *method* is not nginx-specific.
+- The battery runs across 9 real HTTP/2 stacks so the *method* is not nginx-specific.
+- OpenResty 1.31.8.1 (`openresty/1.31.8.1`, nginx 1.31.8 line) completed
+  `cleanup_overcredit` under full KeyUpdate pressure without the accounting
+  signal (two runs). Not a new CVE and not a vendor-fix claim.
 - `wu_zero_stream` open-stream probe matches h2spec §6.9 on the stacks that PASS;
   prior Apache/nghttpd FAILs were our probe bug (documented + withdrawn).
 
 **Not proven / not claimed:**
 
-- Any new CVE on Apache, Caddy, Envoy, Go, or nghttpd.
+- Any new CVE on Apache, Caddy, Envoy, Go, nghttpd, or OpenResty.
+- That an OpenResty 1.31.8.1 PASS means the nginx 1.31.8 fix is present in that build.
 - That soft-profile PASS equals "immune under nginx-style KeyUpdate pressure".
 - Memory corruption or RCE (we never walk to 2^64).
 - That every FAIL/ANOMALY is a security bug — many are RFC-strictness gaps.

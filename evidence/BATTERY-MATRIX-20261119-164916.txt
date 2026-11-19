@@ -1,0 +1,5 @@
+probe              | openresty-1.31.8.1
+---------------------------------------
+cleanup_overcredit | PASS              
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure

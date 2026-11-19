@@ -54,5 +54,6 @@ run_one caddy-2.10 19447
 run_one envoy-1.32 19448
 run_one go-nethttp 19449
 run_one nghttpd 19450
+run_one openresty-1.31.8.1 19452
 
 echo "summary: $SUMMARY"

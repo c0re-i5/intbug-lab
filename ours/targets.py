@@ -43,7 +43,8 @@ class Target:
 
 
 # Ports: 19443 vuln nginx, 19444 http2-off, 19445 apache, 19446 patched nginx,
-#         19447 caddy, 19448 envoy, 19449 go-nethttp, 19450 nghttpd.
+#         19447 caddy, 19448 envoy, 19449 go-nethttp, 19450 nghttpd,
+#         19452 openresty (nginx 1.31.8 line).
 TARGETS: dict[str, Target] = {
     "nginx-1.31.8": Target(
         id="nginx-1.31.8",
@@ -140,6 +141,23 @@ TARGETS: dict[str, Target] = {
         notes="nghttpd from apt on pinned debian; no Range; full KU → Broken pipe",
         key_updates=0,
         carrier_app_bytes=200_000,
+        fallback_key_updates=None,
+        fallback_carrier_app_bytes=None,
+    ),
+    "openresty-1.31.8.1": Target(
+        id="openresty-1.31.8.1",
+        name="OpenResty 1.31.8.1 (nginx 1.31.8 line)",
+        url="https://127.0.0.1:19452/",
+        role="nginx-family",
+        image="openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a",
+        supports_h2=True,
+        notes=(
+            "openresty/1.31.8.1 alpine is still nginx 1.31.8; full KeyUpdate "
+            "pressure like nginx-1.31.8. A cleanup_overcredit FAIL is "
+            "nginx-family inheritance of CVE-2026-123007, not a new CVE"
+        ),
+        # Same pressure as nginx-1.31.8. No soft fallback: ku=0 would hide
+        # the known nginx-line accounting signal.
         fallback_key_updates=None,
         fallback_carrier_app_bytes=None,
     ),

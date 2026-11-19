@@ -71,3 +71,17 @@ services:
     platform: linux/amd64
     container_name: integer-lab-nghttpd
     ports: ["127.0.0.1:19450:443"]
+
+  # OpenResty 1.31.8.1 is still the nginx 1.31.8 line. A cleanup_overcredit
+  # FAIL here is inheritance of CVE-2026-123007, not a new CVE.
+  openresty-13181:
+    image: openresty/openresty@sha256:2cb90d64192934c26b3749cf744f47edd59277787fe761bd109eeebdc3e2214a
+    platform: linux/amd64
+    container_name: integer-lab-openresty
+    ports: ["127.0.0.1:19452:443"]
+    volumes:
+      - ./conf/openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./conf/shared/index.html:/usr/local/openresty/nginx/html/index.html:ro
+    # Alpine image has no openssl CLI; install it, then the same self-signed
+    # cert command as nginx-1318. The server bits stay the pinned digest.
+    entrypoint: ["sh","-c","apk add --no-cache openssl >/dev/null && openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/lab-h2.key -out /tmp/lab-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec openresty -g 'daemon off;'"]

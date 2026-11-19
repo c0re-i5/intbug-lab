@@ -1,0 +1,32 @@
+probe                | nginx-1.31.8       | nginx-http2-off    | httpd-2.4.71       | nginx-1.31.9       | caddy-2.10         | envoy-1.32         | go-nethttp         | nghttpd            | openresty-1.31.8.1
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+h2_alpn              | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS              
+wu_zero_conn         | PASS               | -                  | PASS               | PASS               | PASS               | ANOMALY            | PASS               | PASS               | PASS              
+wu_zero_stream       | PASS               | -                  | PASS               | PASS               | ANOMALY            | ANOMALY            | ANOMALY            | PASS               | PASS              
+wu_conn_overflow     | PASS               | -                  | PASS               | PASS               | PASS               | ANOMALY            | PASS               | PASS               | PASS              
+wu_stream_overflow   | FAIL               | -                  | ANOMALY            | FAIL               | ANOMALY            | ANOMALY            | ANOMALY            | ANOMALY            | FAIL              
+settings_iw_overflow | FAIL               | -                  | ANOMALY            | FAIL               | PASS               | ANOMALY            | PASS               | ANOMALY            | FAIL              
+cleanup_overcredit   | FAIL               | -                  | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS              
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure
+
+Notes (2026-11-19 America/Toronto, OpenResty slice):
+- Columns other than openresty-1.31.8.1 are carried from the prior graceful
+  matrix (evidence/BATTERY-MATRIX-20261119-graceful-final.txt). They were not re-run.
+- openresty-1.31.8.1 is from this slice:
+  evidence/BATTERY-openresty-1.31.8.1-20261119-164827.txt (full 7 probes).
+  cleanup_overcredit repeated PASS in
+  evidence/BATTERY-openresty-1.31.8.1-20261119-164916.txt.
+- Smoke: HTTP/2 200, 896 bytes, https://127.0.0.1:19452/index.html.
+  Publish is 127.0.0.1:19452 only. openresty -v reports openresty/1.31.8.1.
+- cleanup_overcredit on OpenResty ran at full KeyUpdate pressure
+  (key_updates=262144, carrier=7340032), same profile as nginx-1.31.8.
+  Result: PASS. The vulnerable signature was not observed (no RST
+  FLOW_CONTROL_ERROR, canary 0/10, no post-refund PING ACK). That is the
+  same NOT_PROVEN shape as nginx-1.31.9's PASS transcript. It is not a new
+  CVE, and it is not a claim that this OpenResty build has the nginx fix.
+  OpenResty 1.31.8.1 is still the nginx 1.31.8 line; a future FAIL on this
+  family would be inheritance of CVE-2026-123007.
+- wu_stream_overflow and settings_iw_overflow FAIL on OpenResty, matching
+  both nginx 1.31.8 and nginx 1.31.9. Those rows are not the CVE discriminator.
+- NO new CVE claims.

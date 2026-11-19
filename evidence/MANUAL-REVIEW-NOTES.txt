@@ -138,3 +138,50 @@ Node http2 slice (2026-11-19 America/Toronto) — not a new CVE
     targets (00000408000000000100000000). Hard-close style, same review
     bucket as Envoy. wu_zero_conn and wu_conn_overflow did GOAWAY and PASS.
     Not a CVE.
+
+----------------------------------------------------------------------
+HAProxy 3.0 slice (2026-11-19 America/Toronto) — not a new CVE
+----------------------------------------------------------------------
+
+14) haproxy-3.0 :: cleanup_overcredit = PASS
+    Soft profile (key_updates=0, carrier=200000), one run
+    (evidence/BATTERY-haproxy-3.0-20261119-170604.txt). Same profile as
+    go/caddy/node. The probe completed. It is not INCONCLUSIVE.
+    Vulnerable signature not observed: streams 149/151 got RST error code 0
+    (NO_ERROR), not FLOW_CONTROL_ERROR (3); canary 0/10; no post-refund
+    PING ACK. alive=False. Completed NOT_PROVEN under the soft profile.
+    Not nginx-pressure immunity. Not a new CVE.
+    `http-request return file` ignores Range. Smoke of
+    `Range: bytes=0-9` on https://127.0.0.1:19453/index.html was HTTP/2 200,
+    896 bytes, not 206. Window exhaustion via Range is degraded, same class
+    of limitation as Envoy direct_response (note 8). A later HAProxy plus a
+    tiny HTTP sidecar would exercise a real Range/stream lifecycle. That is
+    a follow-up, not a finding from this run.
+    `haproxy -v` on the pinned :3.0-alpine digest is 3.0.31-f286fee
+    (haproxy@sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee).
+
+15) haproxy-3.0 :: wu_zero_stream = ANOMALY
+    RST_STREAM PROTOCOL_ERROR on stream 1, connection kept (alive=True,
+    rst=[(1, 1)]). Same open-stream WU frame as the other targets
+    (00000408000000000100000000). Same review bucket as Caddy and Go.
+    Not a CVE.
+
+16) haproxy-3.0 :: wu_stream_overflow = ANOMALY
+    RST_STREAM FLOW_CONTROL_ERROR on the stream, connection kept.
+    Same review bucket as Apache and Caddy. Not a CVE.
+
+17) haproxy-3.0 :: settings_iw_overflow = FAIL
+    Harness score only. alive=True, goaway_error=None, rst={}, and a later
+    PING was answered, so the probe reports "appeared to be accepted".
+    The request in that flight already has END_STREAM, and this frontend
+    answers immediately with the whole file via http-request return.
+    This row is not the CVE-2026-123007 discriminator. cleanup_overcredit
+    on the same listener PASSed. Not a new CVE. Re-checking the row with
+    HAProxy in front of a tiny HTTP sidecar is a follow-up, not a finding.
+
+18) haproxy-3.0 :: wu_zero_conn = PASS
+    haproxy-3.0 :: wu_conn_overflow = PASS
+    GOAWAY PROTOCOL_ERROR and GOAWAY FLOW_CONTROL_ERROR. Connection-level
+    probes did reject. Not a CVE claim either way.
+
+No new CVE claims from this slice. Traefik was not added.

@@ -45,7 +45,7 @@ class Target:
 # Ports: 19443 vuln nginx, 19444 http2-off, 19445 apache, 19446 patched nginx,
 #         19447 caddy, 19448 envoy, 19449 go-nethttp, 19450 nghttpd,
 #         19452 openresty (nginx 1.31.8 line),
-#         19453 reserved for HAProxy (not wired),
+#         19453 haproxy 3.0 (return-file, no backend),
 #         19454 node-http2.
 TARGETS: dict[str, Target] = {
     "nginx-1.31.8": Target(
@@ -174,6 +174,26 @@ TARGETS: dict[str, Target] = {
             "Built from pinned node:22-alpine (v22.23.5); stdlib http2; "
             "soft profile like go/caddy (key_updates=0). Lab app is not "
             "separately hashed"
+        ),
+        key_updates=0,
+        carrier_app_bytes=200_000,
+        fallback_key_updates=None,
+        fallback_carrier_app_bytes=None,
+    ),
+    "haproxy-3.0": Target(
+        id="haproxy-3.0",
+        name="HAProxy 3.0.31 LTS (http-request return)",
+        url="https://127.0.0.1:19453/",
+        role="cross-impl",
+        image="haproxy@sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee",
+        supports_h2=True,
+        notes=(
+            "Pinned haproxy:3.0-alpine (3.0.31 LTS). Single container: "
+            "TLS+ALPN h2 and http-request return file (no backend, no Range). "
+            "Soft profile (key_updates=0). One run: cleanup_overcredit PASS "
+            "(completed NOT_PROVEN). settings_iw_overflow scored FAIL with "
+            "no RST/GOAWAY on this return-file frontend; that is a review "
+            "item, not a new CVE. Traefik was not selected"
         ),
         key_updates=0,
         carrier_app_bytes=200_000,

@@ -1,0 +1,51 @@
+probe                | nginx-1.31.8       | nginx-http2-off    | httpd-2.4.71       | nginx-1.31.9       | caddy-2.10         | envoy-1.32         | go-nethttp         | nghttpd            | openresty-1.31.8.1 | node-http2         | haproxy-3.0       
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+h2_alpn              | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS              
+wu_zero_conn         | PASS               | -                  | PASS               | PASS               | PASS               | ANOMALY            | PASS               | PASS               | PASS               | PASS               | PASS              
+wu_zero_stream       | PASS               | -                  | PASS               | PASS               | ANOMALY            | ANOMALY            | ANOMALY            | PASS               | PASS               | ANOMALY            | ANOMALY           
+wu_conn_overflow     | PASS               | -                  | PASS               | PASS               | PASS               | ANOMALY            | PASS               | PASS               | PASS               | PASS               | PASS              
+wu_stream_overflow   | FAIL               | -                  | ANOMALY            | FAIL               | ANOMALY            | ANOMALY            | ANOMALY            | ANOMALY            | FAIL               | ANOMALY            | ANOMALY           
+settings_iw_overflow | FAIL               | -                  | ANOMALY            | FAIL               | PASS               | ANOMALY            | PASS               | ANOMALY            | FAIL               | ANOMALY            | FAIL              
+cleanup_overcredit   | FAIL               | -                  | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS               | PASS              
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure
+Notes (2026-11-19 America/Toronto, HAProxy 3.0 slice):
+- Columns other than haproxy-3.0 are carried from the prior Node matrix
+  (evidence/BATTERY-MATRIX-20261119-node.txt / BATTERY-MATRIX-latest.txt
+  before this slice). They were not re-run.
+- haproxy-3.0 is from this slice:
+  evidence/BATTERY-haproxy-3.0-20261119-170604.txt (full 7 probes).
+  Raw one-column matrix: evidence/BATTERY-MATRIX-20261119-170604.txt.
+- Smoke: HTTP/2 200, 896 bytes, https://127.0.0.1:19453/index.html
+  and https://127.0.0.1:19453/. Body matches conf/shared/index.html.
+  Range bytes=0-9 returned HTTP/2 200, 896 bytes (the whole file), not 206.
+  Publish is 127.0.0.1:19453 only. `haproxy -v` in the image is
+  3.0.31-f286fee. Image
+  haproxy@sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee
+  (tag :3.0-alpine → 3.0.31 LTS). Single container: TLS+ALPN h2 and
+  http-request return file. No second backend. 3.0.31 does not treat a
+  trailing backslash as a line continuation, so the return rule is one line.
+- cleanup_overcredit used the soft profile (key_updates=0, carrier=200000),
+  same shape as go/caddy/node. Result: PASS. The vulnerable signature was
+  not observed (streams 149/151 got RST error code 0, not FLOW_CONTROL_ERROR
+  3; canary 0/10; no post-refund PING ACK). alive=False, so the connection
+  did not stay cleanly usable. The probe completed. It is not INCONCLUSIVE.
+  return-file ignores Range, so the fill/canary path is degraded the same
+  way Envoy direct_response is. That is a completed NOT_PROVEN under the
+  soft profile. It is not a new CVE and not a claim of immunity under nginx
+  KeyUpdate pressure or behind a real backend.
+- wu_zero_stream is ANOMALY: RST_STREAM PROTOCOL_ERROR on stream 1, connection
+  kept. Same open-stream WU frame as the other targets
+  (00000408000000000100000000). Same review bucket as Caddy and Go.
+- wu_stream_overflow is ANOMALY: RST_STREAM FLOW_CONTROL_ERROR on the stream,
+  connection kept. Same review bucket as Apache and Caddy.
+- settings_iw_overflow scored FAIL: alive=True, goaway_error=None, rst={},
+  and a later PING was answered. The harness reads that as the SETTINGS
+  delta appearing to be accepted. The request in that flight already has
+  END_STREAM, and this frontend answers immediately with the whole file.
+  That score is not the CVE-2026-123007 discriminator (cleanup_overcredit
+  PASSed) and it is not a new CVE. A return-file frontend does not keep a
+  backend stream open. Re-checking this row with HAProxy in front of a tiny
+  HTTP sidecar is a follow-up, not a finding from this run.
+- wu_zero_conn and wu_conn_overflow returned GOAWAY and PASS.
+- NO new CVE claims. Traefik was not added.

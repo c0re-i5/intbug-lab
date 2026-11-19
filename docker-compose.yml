@@ -87,10 +87,29 @@ services:
     # cert command as nginx-1318. The server bits stay the pinned digest.
     entrypoint: ["sh","-c","apk add --no-cache openssl >/dev/null && openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout /tmp/lab-h2.key -out /tmp/lab-h2.crt -subj /CN=localhost -addext subjectAltName=DNS:localhost,IP:127.0.0.1 && exec openresty -g 'daemon off;'"]
 
+  # HAProxy 3.0.31 LTS (:3.0-alpine). Single container: TLS+ALPN h2 and
+  # http-request return file (no second backend). Entrypoint concatenates
+  # lab.crt+lab.key into the PEM HAProxy loads. The image USER is haproxy;
+  # this service runs as root so that PEM can be written under /etc/haproxy.
+  # return-file does not implement Range. Traefik was not selected.
+  # Digest must match ours/targets.py and scripts/lab-up-targets.sh.
+  haproxy-30:
+    image: haproxy@sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee
+    platform: linux/amd64
+    container_name: integer-lab-haproxy
+    user: "0:0"
+    ports: ["127.0.0.1:19453:443"]
+    volumes:
+      - ./conf/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./conf/haproxy/entrypoint.sh:/entrypoint-lab.sh:ro
+      - ./conf/shared/index.html:/etc/haproxy/www/index.html:ro
+      - ./certs/lab.crt:/certs/lab.crt:ro
+      - ./certs/lab.key:/certs/lab.key:ro
+    entrypoint: ["sh", "/entrypoint-lab.sh"]
+
   # node-http2 is built locally from
   # node@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
   # (tag :22-alpine → v22.23.5). Image tag after build: integer-lab-node:pinned.
-  # Port 19453 is reserved for HAProxy and is intentionally unused.
   node-http2:
     image: integer-lab-node:pinned
     platform: linux/amd64

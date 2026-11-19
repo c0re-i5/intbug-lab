@@ -12,6 +12,9 @@ _OPENRESTY_DIGEST = (
 _NODE_DIGEST = (
     "sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a"
 )
+_HAPROXY_DIGEST = (
+    "sha256:7430e63d3052198b18a40665b59a5826bc428e8bceb0c561d82258149ef855ee"
+)
 
 
 class StatusTests(unittest.TestCase):
@@ -73,8 +76,40 @@ class CleanupTuningTests(unittest.TestCase):
         self.assertNotIn("0.0.0.0:19454", compose)
         self.assertNotIn("0.0.0.0:19453", compose)
 
+    def test_haproxy_soft_profile_digest_lockstep(self):
+        t = get_target("haproxy-3.0")
+        self.assertEqual(t.role, "cross-impl")
+        self.assertTrue(t.supports_h2)
+        self.assertEqual(t.url, "https://127.0.0.1:19453/")
+        self.assertEqual(t.key_updates, 0)
+        self.assertEqual(t.carrier_app_bytes, 200_000)
+        self.assertIsNone(t.fallback_key_updates)
+        self.assertIsNone(t.fallback_carrier_app_bytes)
+        self.assertIn(_HAPROXY_DIGEST, t.image)
+        self.assertIn("return", t.notes)
+        for rel in (
+            "ours/targets.py",
+            "docker-compose.yml",
+            "scripts/lab-up-targets.sh",
+        ):
+            blob = (_REPO / rel).read_text()
+            self.assertEqual(blob.count(_HAPROXY_DIGEST), 1, rel)
+        compose = (_REPO / "docker-compose.yml").read_text()
+        self.assertIn("127.0.0.1:19453:443", compose)
+        self.assertNotIn("0.0.0.0:19453", compose)
+        up = (_REPO / "scripts/lab-up-targets.sh").read_text()
+        self.assertIn("127.0.0.1:19453:443", up)
+        self.assertNotIn("0.0.0.0:19453", up)
+
     def test_soft_stacks_use_ku0(self):
-        for tid in ("caddy-2.10", "envoy-1.32", "go-nethttp", "nghttpd", "node-http2"):
+        for tid in (
+            "caddy-2.10",
+            "envoy-1.32",
+            "go-nethttp",
+            "nghttpd",
+            "node-http2",
+            "haproxy-3.0",
+        ):
             t = get_target(tid)
             self.assertEqual(t.key_updates, 0, tid)
             self.assertEqual(t.carrier_app_bytes, 200_000, tid)

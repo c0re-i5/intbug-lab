@@ -18,6 +18,7 @@ class TargetRegistryTests(unittest.TestCase):
             "go-nethttp",
             "nghttpd",
             "openresty-1.31.8.1",
+            "haproxy-3.0",
             "node-http2",
         ):
             self.assertIn(tid, TARGETS)

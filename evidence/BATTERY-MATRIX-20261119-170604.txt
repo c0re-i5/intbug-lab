@@ -1,0 +1,11 @@
+probe                | haproxy-3.0
+----------------------------------
+h2_alpn              | PASS       
+wu_zero_conn         | PASS       
+wu_zero_stream       | ANOMALY    
+wu_conn_overflow     | PASS       
+wu_stream_overflow   | ANOMALY    
+settings_iw_overflow | FAIL       
+cleanup_overcredit   | PASS       
+
+Legend: PASS=invariant held / RFC reaction; FAIL=invariant broken (bug-class signal); ANOMALY=needs manual review (NOT a confirmed vulnerability); INCONCLUSIVE=probe could not complete (NOT a PASS); SKIP=not applicable; ERROR=harness failure
